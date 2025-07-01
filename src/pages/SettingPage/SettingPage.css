@@ -1,0 +1,387 @@
+.settings-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.back-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.settings-header h1 {
+  color: white;
+  font-size: 2.5rem;
+  font-weight: 600;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.settings-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.settings-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(20px);
+}
+
+.settings-section {
+  margin-bottom: 40px;
+  padding-bottom: 30px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  color: #333;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-info {
+  flex: 1;
+}
+
+.setting-info label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  font-size: 16px;
+  margin-bottom: 5px;
+}
+
+.setting-info span {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+  margin-left: 20px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.setting-select {
+  padding: 10px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.setting-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.action-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.action-btn.danger {
+  background: linear-gradient(135deg, #f44336, #d32f2f);
+  box-shadow: 0 3px 10px rgba(244, 67, 54, 0.3);
+}
+
+.action-btn.danger:hover {
+  box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+}
+
+.password-section {
+  background: #f9f9f9;
+  padding: 25px;
+  border-radius: 12px;
+  margin-top: 20px;
+  border: 2px solid #e0e0e0;
+}
+
+.password-section .form-group {
+  margin-bottom: 20px;
+}
+
+.password-section .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #4caf50, #45a049);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 10px rgba(76, 175, 80, 0.3);
+  margin-top: 15px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.settings-actions {
+  margin-top: 40px;
+  text-align: center;
+  padding-top: 30px;
+  border-top: 2px solid #f0f0f0;
+}
+
+.save-settings-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 15px 40px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+}
+
+.save-settings-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+}
+
+.save-settings-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Dark Mode Styles */
+.dark-mode .settings-card {
+  background: rgba(30, 30, 30, 0.95);
+  color: white;
+}
+
+.dark-mode .settings-section {
+  border-bottom-color: #404040;
+}
+
+.dark-mode .setting-item {
+  border-bottom-color: #404040;
+}
+
+.dark-mode .settings-section h3 {
+  color: white;
+}
+
+.dark-mode .setting-info label {
+  color: white;
+}
+
+.dark-mode .setting-info span {
+  color: #ccc;
+}
+
+.dark-mode .password-section {
+  background: #333;
+  border-color: #555;
+}
+
+.dark-mode .form-group label {
+  color: white;
+}
+
+.dark-mode .form-group input {
+  background: #444;
+  border-color: #555;
+  color: white;
+}
+
+.dark-mode .form-group input:focus {
+  border-color: #667eea;
+}
+
+.dark-mode .setting-select {
+  background: #444;
+  border-color: #555;
+  color: white;
+}
+
+.dark-mode .settings-actions {
+  border-top-color: #404040;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .settings-page {
+    padding: 15px;
+  }
+  
+  .settings-header h1 {
+    font-size: 2rem;
+  }
+  
+  .settings-card {
+    padding: 25px;
+  }
+  
+  .setting-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 15px 0;
+  }
+  
+  .toggle-switch {
+    margin-left: 0;
+    align-self: flex-end;
+  }
+  
+  .setting-select {
+    align-self: flex-end;
+  }
+  
+  .action-btn {
+    align-self: flex-end;
+  }
+  
+  .password-section {
+    padding: 20px;
+  }
+  
+  .save-settings-btn {
+    width: 100%;
+    padding: 12px;
+  }
+}
