@@ -1,8 +1,8 @@
-// src/firebase.js
+// src/firebase.js - Versi yang diperbaiki untuk mengatasi IndexedDB error
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator, initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3zcD5eay3FbT1yqrNs7TnFUIKKm_0I0U",
@@ -17,11 +17,34 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize services
+// Initialize Auth
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 
-// Initialize Analytics only in production and if supported
+// Initialize Firestore dengan konfigurasi yang lebih stabil
+let db;
+try {
+  // Coba inisialisasi Firestore dengan pengaturan cache yang lebih baik
+  db = initializeFirestore(app, {
+    cache: {
+      // Gunakan memory cache untuk menghindari masalah IndexedDB
+      kind: 'memory'
+    },
+    // Tambahkan settings untuk stabilitas
+    ignoreUndefinedProperties: true,
+    // Disable offline persistence untuk sementara
+    localCache: {
+      kind: 'memory'
+    }
+  });
+} catch (error) {
+  console.warn('Failed to initialize Firestore with custom settings, falling back to default:', error);
+  // Fallback ke inisialisasi default
+  db = getFirestore(app);
+}
+
+export { db };
+
+// Initialize Analytics dengan error handling yang lebih baik
 let analytics = null;
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
   try {
@@ -31,14 +54,17 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
   }
 }
 
-// Configure Firestore settings for better reliability
-// Note: We don't need to access internal properties directly
-
-// Development mode: Connect to emulators if needed
+// Development mode: Connect to emulators dengan error handling
 if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_EMULATOR === 'true') {
   try {
-    connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
-    connectFirestoreEmulator(db, 'localhost', 8080);
+    // Pastikan emulator belum terhubung sebelumnya
+    if (!auth.config.emulator) {
+      connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+    }
+    
+    if (!db._delegate._databaseId.projectId.includes('demo-')) {
+      connectFirestoreEmulator(db, 'localhost', 8080);
+    }
   } catch (error) {
     console.warn('Emulator connection failed:', error);
   }
@@ -46,3 +72,31 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_EMULATOR
 
 export { analytics };
 export default app;
+
+// Utility function untuk handle Firebase operations dengan error handling
+export const handleFirebaseError = (error) => {
+  console.error('Firebase error:', error);
+  
+  // Jika error terkait IndexedDB, coba fallback
+  if (error.code === 'app/idb-set' || error.message.includes('IndexedDB')) {
+    console.warn('IndexedDB error detected, using fallback method');
+    return true; // Indicate fallback should be used
+  }
+  
+  return false;
+};
+
+// Wrapper function untuk Firestore operations
+export const safeFirestoreOperation = async (operation) => {
+  try {
+    return await operation();
+  } catch (error) {
+    const shouldFallback = handleFirebaseError(error);
+    if (shouldFallback) {
+      // Implementasi fallback, misalnya menggunakan localStorage
+      console.warn('Using localStorage fallback due to Firestore error');
+      throw new Error('FALLBACK_REQUIRED');
+    }
+    throw error;
+  }
+};

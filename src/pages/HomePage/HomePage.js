@@ -1,314 +1,403 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../../firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import ProfilePage from '../ProfilePage/ProfilePage';
-import SettingsPage from '../SettingPage/SettingPage';
+import { useNavigate } from 'react-router-dom';
+import { User, Settings, LogOut, Search, Bell, Calendar, ArrowRight, Play, BarChart3, TrendingUp, CheckCircle, FileText, Activity, MoreHorizontal } from 'lucide-react';
 import './HomePage.css';
+import logoLRS from '../assets/images/logoLRS.png';
+// Import Firebase functions dengan error handling
+import { handleFirebaseError } from '../../firebase';
 
 const HomePage = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Task');
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'profile', 'settings'
   const [userData, setUserData] = useState({
-    nama: '',
-    idPetugas: '',
-    email: '',
+    nama: 'User',
+    email: 'No email',
     avatar: ''
   });
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [firebaseError, setFirebaseError] = useState(false);
 
-  // ✅ Optimized auth monitoring dengan timeout
+  // Load user data dengan Firebase fallback handling
   useEffect(() => {
-    let timeoutId;
-    
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('Auth state changed:', currentUser);
-      
-      // Clear any existing timeout
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      
-      if (currentUser) {
-        console.log('User is logged in:', currentUser.email);
-        setUser(currentUser);
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
         
-        // ✅ Set basic data immediately from auth
-        const basicUserData = {
-          nama: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-          idPetugas: 'Loading...',
-          email: currentUser.email || '',
-          avatar: currentUser.photoURL || ''
-        };
-        setUserData(basicUserData);
+        // Prioritaskan localStorage untuk menghindari Firebase errors
+        const currentUser = localStorage.getItem('currentUser');
+        if (currentUser) {
+          const user = JSON.parse(currentUser);
+          setUserData({
+            nama: user.nama || user.fullName || user.username || 'User',
+            email: user.email || 'No email',
+            avatar: user.avatar || ''
+          });
+        }
         
-        // ✅ End loading immediately - don't wait for additional data
+        // Jika perlu sync dengan Firebase, lakukan dengan error handling
+        // Uncomment jika menggunakan Firebase untuk user data
+        /*
+        try {
+          // Firebase operations di sini
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            const firebaseData = userDoc.data();
+            setUserData(prev => ({
+              ...prev,
+              ...firebaseData
+            }));
+            // Sync ke localStorage sebagai backup
+            localStorage.setItem('currentUser', JSON.stringify(firebaseData));
+          }
+        } catch (firebaseError) {
+          console.warn('Firebase sync failed, using localStorage data:', firebaseError);
+          setFirebaseError(true);
+          // Tetap gunakan data dari localStorage
+        }
+        */
+        
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        setUserData({
+          nama: 'User',
+          email: 'No email',
+          avatar: ''
+        });
+      } finally {
         setLoading(false);
-        
-        // ✅ Try to get better data in background (non-blocking)
-        loadUserDataInBackground(currentUser.uid);
-        
-      } else {
-        console.log('No user logged in');
-        
-        // ✅ Set timeout for redirect to prevent infinite loading
-        timeoutId = setTimeout(() => {
-          alert('Tidak ada user yang login. Mengarahkan ke halaman login...');
-          window.location.href = '/login';
-        }, 2000);
-        
-        setLoading(false);
       }
-    });
-
-    // ✅ Failsafe timeout - always stop loading after 3 seconds
-    const failsafeTimeout = setTimeout(() => {
-      console.warn('Auth check timeout - stopping loading');
-      setLoading(false);
-      
-      if (!auth.currentUser) {
-        alert('Timeout checking authentication. Silakan refresh halaman.');
-      }
-    }, 3000);
-
-    return () => {
-      unsubscribe();
-      if (timeoutId) clearTimeout(timeoutId);
-      clearTimeout(failsafeTimeout);
     };
-  }, []);
 
-  // ✅ Background data loading (non-blocking)
-  const loadUserDataInBackground = async (uid) => {
-    try {
-      console.log('Loading user data in background for:', uid);
-      
-      // ✅ Try localStorage first (instant)
-      const savedUserData = localStorage.getItem(`user_${uid}`) || 
-                           localStorage.getItem("userData");
-      
-      if (savedUserData) {
-        const userData = JSON.parse(savedUserData);
-        console.log('Found data in localStorage:', userData);
-        
-        setUserData(prev => ({
-          ...prev,
-          nama: userData.namaLengkap || userData.nama || prev.nama,
-          idPetugas: userData.idPetugas || prev.idPetugas,
-          email: userData.email || prev.email,
-          avatar: userData.avatar || prev.avatar
-        }));
-        return; // Don't try Firestore if localStorage has data
-      }
-      
-      // ✅ Try Firestore with timeout (only if localStorage empty)
-      const firestorePromise = getDoc(doc(db, 'users', uid));
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Firestore timeout')), 3000)
-      );
-      
-      const userDoc = await Promise.race([firestorePromise, timeoutPromise]);
-      
-      if (userDoc.exists()) {
-        console.log('Got data from Firestore:', userDoc.data());
-        const data = userDoc.data();
-        
-        setUserData(prev => ({
-          ...prev,
-          nama: data.nama || data.fullName || prev.nama,
-          idPetugas: data.idPetugas || data.employeeId || prev.idPetugas,
-          email: data.email || prev.email,
-          avatar: data.avatar || data.profilePicture || prev.avatar
-        }));
-      }
-      
-    } catch (error) {
-      console.warn('Background data loading failed:', error);
-      
-      // ✅ Generate fallback ID if still loading
-      if (userData.idPetugas === 'Loading...') {
-        setUserData(prev => ({
-          ...prev,
-          idPetugas: 'PET-' + uid.substring(0, 6).toUpperCase()
-        }));
-      }
-    }
-  };
+    loadUserData();
+  }, []);
 
   const handleLogout = async () => {
     if (window.confirm('Apakah Anda yakin ingin logout?')) {
       try {
-        await signOut(auth);
-        setUserData({ nama: '', idPetugas: '', email: '', avatar: '' });
-        setUser(null);
+        // Clear localStorage data
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userToken');
+        
+        // Jika menggunakan Firebase Auth, tambahkan error handling
+        /*
+        try {
+          await signOut(auth);
+        } catch (firebaseError) {
+          console.warn('Firebase signout error (will continue logout):', firebaseError);
+          handleFirebaseError(firebaseError);
+        }
+        */
+        
         alert('Logout berhasil!');
+        window.location.href = '/';
       } catch (error) {
         console.error('Error during logout:', error);
-        alert('Terjadi kesalahan saat logout. Silakan coba lagi.');
+        alert('Terjadi kesalahan saat logout');
       }
     }
   };
 
   const handleProfileClick = () => {
-    setCurrentPage('profile');
+    console.log('Navigate to profile page');
     setShowDropdown(false);
   };
 
   const handleSettingsClick = () => {
-    setCurrentPage('settings');
+    console.log('Navigate to settings page');
     setShowDropdown(false);
   };
 
-  const handleBackToHome = () => {
-    setCurrentPage('home');
+  const handleStartTask = (taskId) => {
+    try {
+      localStorage.setItem('currentTaskId', taskId);
+      navigate('/task');
+    } catch (error) {
+      console.error('Error navigating to task page:', error);
+      alert('Terjadi kesalahan saat membuka halaman task');
+    }
+  };
+
+  const handleMenuClick = (menuName) => {
+    setActiveTab(menuName);
+    
+    switch (menuName) {
+      case 'Task':
+        break;
+      case 'Log Progress':
+        try {
+          navigate('/progress');
+        } catch (error) {
+          console.error('Error navigating to progress page:', error);
+          alert('Terjadi kesalahan saat membuka halaman log progress');
+        }
+        break;
+      case 'Report':
+        try {
+          navigate('/report');
+        } catch (error) {
+          console.error('Error navigating to report page:', error);
+          alert('Terjadi kesalahan saat membuka halaman report');
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleLainnyaClick = () => {
+    console.log('Navigate to lainnya page');
+    // Add navigation logic here
+  };
+
+  const handleSidebarSettingsClick = () => {
+    console.log('Navigate to settings page from sidebar');
+    // Add navigation logic here
   };
 
   const tasks = [
     {
       id: 1,
-      title: 'Sistem Persinyalan Kereta Api',
-      description: 'Sistem Interlocking Berbasis Komputer (CBI) Perkeretaapian dengan tingkat keselamatan dan keandalan yang tinggi menggunakan platform keselamatan bersertifikat SIL-4.',
-      tags: ['SilSafe 4000', 'SilSafe 5000', 'SilTrack LS3000']
-    },
-    {
-      id: 2,
-      title: 'Sistem Persinyalan Kereta Api',
-      description: 'Sistem Interlocking Berbasis Komputer (CBI) Perkeretaapian dengan tingkat keselamatan dan keandalan yang tinggi menggunakan platform keselamatan bersertifikat SIL-4.',
-      tags: ['SilSafe 4000', 'SilSafe 5000', 'SilTrack LS3000']
-    },
-    {
-      id: 3,
-      title: 'Sistem Persinyalan Kereta Api',
-      description: 'Sistem Interlocking Berbasis Komputer (CBI) Perkeretaapian dengan tingkat keselamatan dan keandalan yang tinggi menggunakan platform keselamatan bersertifikat SIL-4.',
-      tags: ['SilSafe 4000', 'SilSafe 5000', 'SilTrack LS3000']
+      title: 'Wiring & Terminasi Main 3 Aspect V3',
+      description: 'Instalasi dan terminasi kabel utama untuk sistem persinyalan 3 aspek versi 3 dengan standar keselamatan tinggi dan akurasi yang presisi.',
+      tags: ['Wiring', 'Terminasi', '3 Aspect V3'],
+      priority: 'High',
+      progress: 45,
+      status: 'In Progress'
     }
   ];
 
-  const menuItems = ['Task', 'Progress', 'Statistics'];
+  const menuItems = [
+    { name: 'Task', icon: CheckCircle },
+    { name: 'Log Progress', icon: Activity },
+    { name: 'Report', icon: FileText }
+  ];
 
-  // ✅ Show loading with timeout info
+  const stats = [
+    { label: 'Total Tasks', value: '1', change: '+0%', color: 'bg-blue-500' },
+    { label: 'Completed', value: '0', change: '0%', color: 'bg-green-500' },
+    { label: 'In Progress', value: '1', change: '+1%', color: 'bg-yellow-500' },
+    { label: 'Overdue', value: '0', change: '0%', color: 'bg-red-500' }
+  ];
+
   if (loading) {
     return (
       <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading...</p>
-        <small style={{color: '#666', marginTop: '10px'}}>
-          Jika loading terlalu lama, silakan refresh halaman
-        </small>
+        <div className="loading-content">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // Render different pages based on currentPage state
-  if (currentPage === 'profile') {
-    return <ProfilePage onBack={handleBackToHome} />;
-  }
-
-  if (currentPage === 'settings') {
-    return <SettingsPage onBack={handleBackToHome} />;
-  }
-
   return (
-    <div className="homepage">
-      <div className="sidebar">
-        <div className="logo">
-          <h2>Len Railway Systems</h2>
+    <div className="home-container">
+      {/* Firebase Error Notification (Optional) */}
+      {firebaseError && (
+        <div className="firebase-error-notification" style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: '#ff6b6b',
+          color: 'white',
+          padding: '10px 15px',
+          borderRadius: '5px',
+          zIndex: 1000,
+          fontSize: '14px'
+        }}>
+          ⚠️ Mode Offline - Data disimpan lokal
         </div>
-        <nav className="menu">
-          <div className="menu-label">Menu</div>
-          {menuItems.map((item) => (
-            <button
-              key={item}
-              className={`menu-item ${activeTab === item ? 'active' : ''}`}
-              onClick={() => setActiveTab(item)}
-            >
-              {item}
-            </button>
-          ))}
+      )}
+
+      {/* Sidebar */}
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <div className="sidebar-logo">
+            <img src={logoLRS} alt="Len Railway Systems" className="logo-image" />
+          </div>
+        </div>
+        
+        <nav className="sidebar-nav">
+          <div className="nav-title">Menu</div>
+          <div className="nav-items">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.name}
+                  className={`nav-item ${activeTab === item.name ? 'nav-item-active' : ''}`}
+                  onClick={() => handleMenuClick(item.name)}
+                >
+                  <Icon className={`nav-icon ${activeTab === item.name ? 'nav-icon-active' : ''}`} />
+                  <span className="nav-label">{item.name}</span>
+                </button>
+              );
+            })}
+          </div>
         </nav>
+
+        <div className="sidebar-stats">
+          <div className="stats-container">
+            <div className="nav-title">LAINNYA</div>
+            <div className="nav-items">
+              <button className="nav-item" onClick={handleSidebarSettingsClick}>
+                <Settings className="nav-icon" />
+                <span className="nav-label">Pengaturan</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Main Content */}
       <div className="main-content">
         <div className="header">
-          <div className="header-left">
-            <h1>Task Harian Pekerjaan</h1>
-          </div>
-          <div className="header-right">
-            <div className="filter-buttons">
-              <button 
-                className={`filter-btn ${selectedFilter === 'All' ? 'active' : ''}`}
-                onClick={() => setSelectedFilter('All')}
-              >
-                All
-              </button>
-              <button 
-                className={`filter-btn ${selectedFilter === 'Completed' ? 'active' : ''}`}
-                onClick={() => setSelectedFilter('Completed')}
-              >
-                Completed
-              </button>
+          <div className="header-content">
+            <div className="header-left">
+              <div>
+                <h1 className="page-title">Task Harian Pekerjaan</h1>
+                <p className="page-subtitle">Kelola dan pantau tugas harian Anda</p>
+              </div>
             </div>
-            <div className="user-profile" onClick={() => setShowDropdown(!showDropdown)}>
-              <div className="user-avatar">
-                {userData.avatar ? (
-                  <img src={userData.avatar} alt="Profile" />
-                ) : (
-                  <span className="avatar-initial">
-                    {userData.nama ? userData.nama.charAt(0).toUpperCase() : 'U'}
-                  </span>
+            
+            <div className="header-right">
+              <div className="search-container">
+                <Search className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Cari task..."
+                  className="search-input"
+                />
+              </div>
+
+              <div className="filter-container">
+                <button 
+                  className={`filter-btn ${selectedFilter === 'All' ? 'filter-btn-active' : ''}`}
+                  onClick={() => setSelectedFilter('All')}
+                >
+                  All
+                </button>
+                <button 
+                  className={`filter-btn ${selectedFilter === 'Completed' ? 'filter-btn-active' : ''}`}
+                  onClick={() => setSelectedFilter('Completed')}
+                >
+                  Completed
+                </button>
+              </div>
+
+              <button className="notification-btn">
+                <Bell className="notification-icon" />
+                <span className="notification-badge"></span>
+              </button>
+
+              <div className="profile-container">
+                <button
+                  className="profile-btn"
+                  onClick={() => setShowDropdown(!showDropdown)}
+                >
+                  <div className="profile-avatar">
+                    <span className="avatar-text">
+                      {userData.nama.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="profile-info">
+                    <div className="profile-name">{userData.nama}</div>
+                  </div>
+                </button>
+
+                {showDropdown && (
+                  <div className="dropdown-menu">
+                    <div className="dropdown-header">
+                      <div className="dropdown-name">{userData.nama}</div>
+                      <div className="dropdown-email">{userData.email}</div>
+                    </div>
+                    <button className="dropdown-item" onClick={handleProfileClick}>
+                      <User className="dropdown-icon" />
+                      <span>Profile</span>
+                    </button>
+                    <button className="dropdown-item" onClick={handleSettingsClick}>
+                      <Settings className="dropdown-icon" />
+                      <span>Settings</span>
+                    </button>
+                    <hr className="dropdown-divider" />
+                    <button className="dropdown-item dropdown-logout" onClick={handleLogout}>
+                      <LogOut className="dropdown-icon" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
                 )}
               </div>
-              <div className="user-info">
-                <span className="username">{userData.nama || 'User'}</span>
-                <span className="user-id">{userData.idPetugas || 'Loading...'}</span>
-              </div>
-              <span className="dropdown-arrow">▼</span>
-              {showDropdown && (
-                <div className="dropdown-menu">
-                  <div className="dropdown-header">
-                    <div className="dropdown-user-info">
-                      <strong>{userData.nama}</strong>
-                      <small>{userData.email}</small>
-                      <small>ID: {userData.idPetugas}</small>
-                    </div>
-                  </div>
-                  <hr className="dropdown-divider" />
-                  <button className="dropdown-item" onClick={handleProfileClick}>
-                    Profile
-                  </button>
-                  <button className="dropdown-item" onClick={handleSettingsClick}>
-                    Settings
-                  </button>
-                  <hr className="dropdown-divider" />
-                  <button className="dropdown-item logout" onClick={handleLogout}>
-                    Logout
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        <div className="tasks-container">
-          {tasks.map((task) => (
-            <div key={task.id} className="task-card">
-              <h3 className="task-title">{task.title}</h3>
-              <p className="task-description">{task.description}</p>
-              <div className="task-footer">
-                <div className="task-tags">
-                  {task.tags.map((tag, index) => (
-                    <span key={index} className="task-tag">
-                      {tag}
-                    </span>
-                  ))}
+        <div className="content-area">
+          <div className="stats-grid">
+            {stats.map((stat, index) => (
+              <div key={index} className="stat-card">
+                <div className="stat-card-content">
+                  <div>
+                    <p className="stat-card-label">{stat.label}</p>
+                    <p className="stat-card-value">{stat.value}</p>
+                    <p className={`stat-card-change ${stat.change.startsWith('+') ? 'positive' : 'negative'}`}>
+                      {stat.change} from last week
+                    </p>
+                  </div>
+                  <div className={`stat-card-indicator ${stat.color}`}></div>
                 </div>
-                <button className="detail-btn">Mulai Pengerjaan</button>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <div className="tasks-container">
+            {tasks.map((task) => (
+              <div key={task.id} className="task-card">
+                <div className="task-card-content">
+                  <div className="task-header">
+                    <span className={`priority-badge priority-${task.priority.toLowerCase()}`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                  
+                  <h3 className="task-title">{task.title}</h3>
+                  <p className="task-description">{task.description}</p>
+                  
+                  <div className="progress-section">
+                    <div className="progress-header">
+                      <span className="progress-label">Progress</span>
+                      <span className="progress-value">{task.progress}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill"
+                        style={{ width: `${task.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div className="tags-container">
+                    {task.tags.map((tag, index) => (
+                      <span key={index} className="tag">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="task-footer">
+                  <button 
+                    className="start-btn"
+                    onClick={() => handleStartTask(task.id)}
+                  >
+                    <Play className="start-icon" />
+                    <span>Mulai Pengerjaan</span>
+                    <ArrowRight className="arrow-icon" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

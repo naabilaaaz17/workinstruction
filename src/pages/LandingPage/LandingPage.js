@@ -1,37 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Menu, X, Play, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Menu, X, Play, ArrowRight, CheckCircle, Users, FileText, Clock, Settings, MessageSquare, HelpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Tambahkan ini
+
+// Import images
 import LogoLen from '../assets/images/logo-defend-len.png';
-import HeroImg from '../assets/images/logo1.png';
-import ProductImg1 from '../assets/images/product1.png';
-import ProductImg2 from '../assets/images/product2.png';
-import ProductImg3 from '../assets/images/product3.png';
+import Product1 from '../assets/images/product1.png';
+import Product2 from '../assets/images/product2.png';
+import Product3 from '../assets/images/product3.png';
+import heroBackground from '../assets/images/hero-background.jpg';
+// Import video 
+import workIllustration from '../assets/videos/work-illustration.mp4';
 import './LandingPage.css';
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const navigate = useNavigate();
+  const [openFAQIndex, setOpenFAQIndex] = useState(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [videoError, setVideoError] = useState(false);
+  
+  const navigate = useNavigate(); // Tambahkan ini
+
+  const toggleFAQ = (index) => {
+    setOpenFAQIndex(openFAQIndex === index ? null : index);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-slide effect untuk carousel custom
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % 3); // 3 total slides untuk dots
+    }, 4000); // 4 detik per slide
+
+    return () => clearInterval(interval);
   }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  // Ubah handler functions ini
   const handleSignIn = () => {
-    navigate('/login');
+    navigate('/login'); // Navigasi ke halaman login
   };
 
   const handleRegister = () => {
-    navigate('/register');
+    navigate('/register'); // Navigasi ke halaman register
+  };
+
+  const handleGetStarted = () => {
+    navigate('/register'); // Atau ke login, sesuai preferensi
+  };
+
+  const handleViewDemo = () => {
+    console.log('View demo clicked');
+    // Bisa scroll ke section demo atau buka modal
   };
 
   const scrollToSection = (sectionId) => {
@@ -42,27 +73,51 @@ const LandingPage = () => {
     setIsMenuOpen(false);
   };
 
+  const handleVideoError = () => {
+    console.log('Video failed to load');
+    setVideoError(true);
+  };
+
+  const faqs = [
+    {
+      question: 'Saya belum punya akun, bagaimana cara daftar?',
+      answer: 'Silakan hubungi admin HRD untuk pendaftaran awal. Admin akan membuatkan akun dan memberikan kredensial login kepada Anda.',
+    },
+    {
+      question: 'Saya lupa password, bagaimana cara reset?',
+      answer: 'Gunakan tombol "Lupa Password" pada halaman login. Masukkan email yang terdaftar dan ikuti instruksi reset password yang dikirim ke email Anda.',
+    },
+    {
+      question: 'Apakah sistem ini bisa diakses dari mobile?',
+      answer: 'Ya, sistem ini responsive dan dapat diakses dari berbagai perangkat termasuk smartphone, tablet, dan desktop untuk kemudahan akses di lapangan.',
+    },
+  ];
+
+  // Data untuk carousel
+  const carouselImages = [Product1, Product2, Product3];
+
+  // Sisa kode komponen tetap sama...
   return (
-    <div>
+    <div className="landing-page">
       {/* Navbar */}
       <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''}`}>
         <div className="navbar-inner">
           <div className="nav-title">
-            <span className="text-blue-400">Len</span> Railway Systems
+            <span className="text-blue-600">Len</span> Railway Systems
           </div>
           
           <div className="nav-links">
             <a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>
               Home
             </a>
-            <a href="#task" onClick={(e) => { e.preventDefault(); scrollToSection('task'); }}>
-              Task
+            <a href="#about" onClick={(e) => { e.preventDefault(); scrollToSection('about'); }}>
+              Tentang Sistem
             </a>
-            <a href="#progress" onClick={(e) => { e.preventDefault(); scrollToSection('progress'); }}>
-              Progress
+            <a href="#how-to-use" onClick={(e) => { e.preventDefault(); scrollToSection('how-to-use'); }}>
+              Cara Menggunakan
             </a>
-            <a href="#statistics" onClick={(e) => { e.preventDefault(); scrollToSection('statistics'); }}>
-              Statistics
+            <a href="#faq" onClick={(e) => { e.preventDefault(); scrollToSection('faq'); }}>
+              FAQ
             </a>
           </div>
           
@@ -85,14 +140,14 @@ const LandingPage = () => {
           <a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>
             Home
           </a>
-          <a href="#task" onClick={(e) => { e.preventDefault(); scrollToSection('task'); }}>
-            Task
+          <a href="#about" onClick={(e) => { e.preventDefault(); scrollToSection('about'); }}>
+            Tentang Sistem
           </a>
-          <a href="#progress" onClick={(e) => { e.preventDefault(); scrollToSection('progress'); }}>
-            Progress
+          <a href="#how-to-use" onClick={(e) => { e.preventDefault(); scrollToSection('how-to-use'); }}>
+            Cara Menggunakan
           </a>
-          <a href="#statistics" onClick={(e) => { e.preventDefault(); scrollToSection('statistics'); }}>
-            Statistics
+          <a href="#faq" onClick={(e) => { e.preventDefault(); scrollToSection('faq'); }}>
+            FAQ
           </a>
           <div className="nav-buttons">
             <button onClick={handleSignIn} className="btn-primary">
@@ -106,257 +161,276 @@ const LandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="hero-section">
-        <div className="hero-background-blur"></div>
-        
-        <div className="hero-content-wrapper">
-          <div className="hero-inner-content">
-            <div className="hero-text-content">
-              <h1 className="hero-title">
-                Optimalkan <br /> 
-                Manajemen Proyek <br /> 
-                Anda dengan <span className="gradient-text">Work Instruction</span>
-              </h1>
-              
-              <p className="hero-description">
-                Pantau kemajuan tim dan pekerja secara real-time untuk pengelolaan yang lebih efisien. 
-                Pastikan setiap langkah tercatat dengan baik untuk hasil yang maksimal.
-              </p>
-              
-              <div className="hero-cta-buttons">
-                <button className="cta-primary" onClick={() => scrollToSection('task')}>
-                  <Play size={20} />
-                  Mulai Sekarang
-                </button>
-                <button className="cta-secondary" onClick={() => scrollToSection('statistics')}>
-                  Pelajari Lebih Lanjut
-                  <ArrowRight size={18} />
-                </button>
+      <section
+        id="home"
+        className="hero-section modern-hero"
+        style={{
+          backgroundImage: `url(${heroBackground})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          minHeight: '100vh',
+          color: 'white'
+        }}
+      >
+        <div className="hero-container">
+          <h1 className="modern-title">Stay on Track</h1>
+          <h2 className="modern-subtitle">With Len Railways System</h2>
+          <p className="hero-description centered-text">
+            Kelola instruksi kerja, pantau tim secara real-time, dan capai efisiensi maksimal di setiap langkah kerja.
+          </p>
+          <div className="hero-cta-buttons centered-buttons">
+            <button onClick={handleGetStarted} className="cta-primary modern-button">
+              Mulai Sekarang
+            </button>
+            <button onClick={handleViewDemo} className="cta-secondary modern-button">
+              Lihat Demo
+            </button>
+          </div>
+          
+          {/* Carousel */}
+          <div className="carousel-wrapper">
+            <div className="custom-carousel">
+              <div
+                className="carousel-track"
+                style={{
+                  transform: `translateX(-${currentSlide * 33.333}%)`,
+                  transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                {carouselImages.map((image, index) => (
+                  <div key={index} className="carousel-slide">
+                    <div className="carousel-image-container">
+                      <img 
+                        src={image} 
+                        className="carousel-img" 
+                        alt={`Product ${index + 1}`}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div className="image-fallback" style={{ display: 'none' }}>
+                        <div className="fallback-placeholder">
+                          <FileText size={48} />
+                          <span>Product {index + 1}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="carousel-dots">
+                {[0, 1, 2].map((dot) => (
+                  <button
+                    key={dot}
+                    className={`carousel-dot ${currentSlide === dot ? 'active' : ''}`}
+                    onClick={() => setCurrentSlide(dot)}
+                  />
+                ))}
               </div>
             </div>
-            
-            <div className="hero-image-container">
-              <div className="image-container">
-                <img 
-                  src={HeroImg} 
-                  alt="Hero Logo - Len Railway Systems" 
-                  className="image-main"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
-                <div className="logo-fallback" style={{ display: 'none' }}>
-                  LEN
+          </div>
+        </div>
+      </section>
+
+      {/* ===== ABOUT SECTION ===== */}
+      <section id="about" className="about-section">
+        <div className="section-container">
+          <div className="section-header">
+            <h2 className="section-title">Sistem yang Mengubah Cara Kerja Tim</h2>
+            <p className="section-subtitle">
+              Solusi digital yang memastikan setiap instruksi kerja tersampaikan dengan jelas dan efisien
+            </p>
+          </div>
+
+          <div className="about-grid">
+            {/* Left Side - Cards */}
+            <div className="about-cards-container">
+              <div className="about-card">
+                <div className="about-card-content">
+                  <div className="about-icon"><Settings size={32} /></div>
+                  <div className="about-card-text">
+                    <h3 className="about-card-title">Menghindari Miskomunikasi Pekerjaan</h3>
+                    <p className="about-card-description">
+                      Sistem ini memastikan setiap instruksi kerja jelas dan terstandarisasi,
+                      mengurangi kesalahan akibat miskomunikasi antar tim.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="about-card">
+                <div className="about-card-content">
+                  <div className="about-icon"><FileText size={32} /></div>
+                  <div className="about-card-text">
+                    <h3 className="about-card-title">Instruksi Terdokumentasi Digital</h3>
+                    <p className="about-card-description">
+                      Semua prosedur kerja tersimpan dalam format digital yang mudah diakses,
+                      diperbarui, dan dibagikan kepada seluruh tim.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="about-card">
+                <div className="about-card-content">
+                  <div className="about-icon"><Clock size={32} /></div>
+                  <div className="about-card-text">
+                    <h3 className="about-card-title">Akses Instruksi Kapan Saja</h3>
+                    <p className="about-card-description">
+                      Pekerja dapat mengakses instruksi kerja 24/7 melalui perangkat mobile
+                      atau desktop, memastikan produktivitas maksimal.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="about-card">
+                <div className="about-card-content">
+                  <div className="about-icon"><Users size={32} /></div>
+                  <div className="about-card-text">
+                    <h3 className="about-card-title">Dukung Kolaborasi Tim</h3>
+                    <p className="about-card-description">
+                      Dirancang untuk teknisi, supervisor, dan staff operasional
+                      dengan interface yang mudah dipahami dan digunakan.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Right Side - Video */}
+            <div className="about-animation">
+              {!videoError ? (
+                <video 
+                  className="about-video" 
+                  autoPlay 
+                  loop 
+                  muted 
+                  playsInline
+                  onError={handleVideoError}
+                >
+                  <source src={workIllustration} type="video/mp4" />
+                  <source src="./assets/videos/work-illustration.mp4" type="video/mp4" />
+                  <source src="/assets/videos/work-illustration.mp4" type="video/mp4" />
+                  <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              ) : (
+                <div className="video-placeholder">
+                  <div className="placeholder-content">
+                    <div className="placeholder-icon">
+                      <Play size={64} />
+                    </div>
+                    <div className="placeholder-text">
+                      <h3>Work Illustration Video</h3>
+                      <p>Video menunjukkan cara kerja sistem</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Floating decorative elements */}
+              <div className="floating-dots">
+                <div className="dot"></div>
+                <div className="dot"></div>
+                <div className="dot"></div>
+                <div className="dot"></div>
+                <div className="dot"></div>
+                <div className="dot"></div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Products Section */}
-      <section id="task" className="products-section">
-        <h2 className="products-title">Produk yang dihasilkan</h2>
-        <p className="products-subtitle">
-          Dapatkan gambaran lengkap produk, fitur, kegunaan dan jenisnya pada daftar di bawah ini
-        </p>
-        
-        <div className="products-grid">
-          <div className="product-card">
-            <img 
-              src={ProductImg1} 
-              alt="Sistem Persinyalan Kereta Api" 
-              onError={(e) => {
-                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMUU0MEFGIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1zaXplPSIxOCIgZm9udC1mYW1pbHk9IkFyaWFsIj5TaXN0ZW0gUGVyc2lueWFsYW48L3RleHQ+Cjwvc3ZnPg==';
-              }}
-            />
-            <h3>Sistem Persinyalan Kereta Api</h3>
-            <p>
-              Sistem ini digunakan untuk mengatur pergerakan kereta api agar tetap aman dan teratur 
-              dengan otomatisasi tinggi dan teknologi modern yang terintegrasi.
+      {/* How to Use Section */}
+      <section id="how-to-use" className="how-to-use-section">
+        <div className="section-container">
+          <div className="section-header">
+            <h2 className="section-title">Cara Menggunakan Sistem Ini</h2>
+            <p className="section-subtitle">
+              Langkah singkat untuk memulai - mudah digunakan bahkan untuk pengguna awam
             </p>
-            <button className="card-button" onClick={() => console.log('Navigate to Sistem Persinyalan')}>
-              Mulai Penggunaan <ChevronRight size={18} />
-            </button>
           </div>
           
-          <div className="product-card">
-            <img 
-              src={ProductImg2} 
-              alt="Sistem Kontrol Pusat" 
-              onError={(e) => {
-                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMUU0MEFGIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1zaXplPSIxOCIgZm9udC1mYW1pbHk9IkFyaWFsIj5TaXN0ZW0gS29udHJvbDwvdGV4dD4KPC9zdmc+';
-              }}
-            />
-            <h3>Sistem Kontrol Pusat</h3>
-            <p>
-              Digunakan untuk memantau seluruh sistem rel dan memastikan semua komponen berjalan 
-              selaras secara efisien dengan monitoring real-time 24/7.
-            </p>
-            <button className="card-button" onClick={() => console.log('Navigate to Sistem Kontrol')}>
-              Mulai Penggunaan <ChevronRight size={18} />
-            </button>
-          </div>
-          
-          <div className="product-card">
-            <img 
-              src={ProductImg3} 
-              alt="Manajemen Operasi Harian" 
-              onError={(e) => {
-                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMUU0MEFGIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1zaXplPSIxOCIgZm9udC1mYW1pbHk9IkFyaWFsIj5NYW5hamVtZW4gT3BlcmFzaTwvdGV4dD4KPC9zdmc+';
-              }}
-            />
-            <h3>Manajemen Operasi Harian</h3>
-            <p>
-              Solusi untuk penjadwalan, monitoring, dan pengelolaan harian aktivitas kereta 
-              dengan akurasi tinggi dan sistem pelaporan yang komprehensif.
-            </p>
-            <button className="card-button" onClick={() => console.log('Navigate to Manajemen Operasi')}>
-              Mulai Penggunaan <ChevronRight size={18} />
-            </button>
+          <div className="steps-container">
+            <div className="step-item">
+              <div className="step-number">1</div>
+              <div className="step-content">
+                <h3 className="step-title">Login dengan Akun Karyawan</h3>
+                <p className="step-description">Masuk menggunakan akun yang telah didaftarkan oleh admin HRD</p>
+              </div>
+            </div>
+            
+            <div className="step-arrow">
+              <ArrowRight size={24} />
+            </div>
+            
+            <div className="step-item">
+              <div className="step-number">2</div>
+              <div className="step-content">
+                <h3 className="step-title">Lihat Instruksi Kerja Hari Ini</h3>
+                <p className="step-description">Dashboard akan menampilkan semua tugas dan instruksi yang harus diselesaikan</p>
+              </div>
+            </div>
+            
+            <div className="step-arrow">
+              <ArrowRight size={24} />
+            </div>
+            
+            <div className="step-item">
+              <div className="step-number">3</div>
+              <div className="step-content">
+                <h3 className="step-title">Ikuti Langkah yang Tertera</h3>
+                <p className="step-description">Instruksi detail akan memandu setiap langkah pekerjaan yang harus dilakukan</p>
+              </div>
+            </div>
+            
+            <div className="step-arrow">
+              <ArrowRight size={24} />
+            </div>
+            
+            <div className="step-item">
+              <div className="step-number">4</div>
+              <div className="step-content">
+                <h3 className="step-title">Tandai Selesai dan Unggah Bukti</h3>
+                <p className="step-description">Setelah selesai, tandai sebagai complete dan upload foto/dokumen jika diperlukan</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Progress Section */}
-      <section id="progress" className="products-section" style={{ background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)' }}>
-        <h2 className="products-title">Progress Monitoring</h2>
-        <p className="products-subtitle">
-          Pantau kemajuan proyek dan kinerja tim secara real-time dengan dashboard yang intuitif
-        </p>
-        
-        <div className="products-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-          <div className="product-card" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
-            <h3>Dashboard Analytics</h3>
-            <p>
-              Visualisasi data yang komprehensif dengan grafik dan chart yang mudah dipahami 
-              untuk memantau kinerja sistem secara keseluruhan.
+      {/* FAQ Section */}
+      <section id="faq" className="faq-section">
+        <div className="section-container">
+          <div className="section-header">
+            <h2 className="section-title">Pertanyaan yang Sering Diajukan</h2>
+            <p className="section-subtitle">
+              Jawaban untuk pertanyaan umum tentang sistem Work Instruction
             </p>
-            <button className="card-button">
-              Lihat Dashboard <ChevronRight size={18} />
-            </button>
           </div>
-          
-          <div className="product-card" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚡</div>
-            <h3>Real-time Monitoring</h3>
-            <p>
-              Pemantauan status sistem secara langsung dengan notifikasi otomatis 
-              untuk setiap perubahan atau anomali yang terdeteksi.
-            </p>
-            <button className="card-button">
-              Akses Monitoring <ChevronRight size={18} />
-            </button>
-          </div>
-          
-          <div className="product-card" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📈</div>
-            <h3>Performance Reports</h3>
-            <p>
-              Laporan kinerja detail dengan analisis mendalam untuk membantu pengambilan 
-              keputusan strategis dan optimasi operasional.
-            </p>
-            <button className="card-button">
-              Generate Report <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
-      </section>
 
-      {/* Statistics Section */}
-      <section id="statistics" className="products-section" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', padding: '8rem 2rem' }}>
-        <h2 className="products-title">Statistik & Pencapaian</h2>
-        <p className="products-subtitle">
-          Data kinerja dan pencapaian sistem Len Railway yang telah terbukti efektif
-        </p>
-        
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '3rem',
-          maxWidth: '1200px',
-          margin: '4rem auto 0'
-        }}>
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '2rem',
-            background: 'rgba(59, 130, 246, 0.1)',
-            borderRadius: '1rem',
-            border: '1px solid rgba(59, 130, 246, 0.2)'
-          }}>
-            <div style={{ 
-              fontSize: '3.5rem', 
-              fontWeight: '900', 
-              color: '#60a5fa',
-              marginBottom: '0.5rem',
-              background: 'linear-gradient(135deg, #60a5fa, #22d3ee)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              color: 'transparent'
-            }}>
-              99.8%
-            </div>
-            <h3 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '0.5rem' }}>Uptime</h3>
-            <p style={{ color: '#94a3b8' }}>Keandalan sistem yang tinggi</p>
-          </div>
-          
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '2rem',
-            background: 'rgba(34, 211, 238, 0.1)',
-            borderRadius: '1rem',
-            border: '1px solid rgba(34, 211, 238, 0.2)'
-          }}>
-            <div style={{ 
-              fontSize: '3.5rem', 
-              fontWeight: '900', 
-              color: '#22d3ee',
-              marginBottom: '0.5rem'
-            }}>
-              50+
-            </div>
-            <h3 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '0.5rem' }}>Proyek</h3>
-            <p style={{ color: '#94a3b8' }}>Proyek berhasil diselesaikan</p>
-          </div>
-          
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '2rem',
-            background: 'rgba(168, 85, 247, 0.1)',
-            borderRadius: '1rem',
-            border: '1px solid rgba(168, 85, 247, 0.2)'
-          }}>
-            <div style={{ 
-              fontSize: '3.5rem', 
-              fontWeight: '900', 
-              color: '#a855f7',
-              marginBottom: '0.5rem'
-            }}>
-              1000+
-            </div>
-            <h3 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '0.5rem' }}>Pengguna</h3>
-            <p style={{ color: '#94a3b8' }}>Pengguna aktif sistem</p>
-          </div>
-          
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '2rem',
-            background: 'rgba(34, 197, 94, 0.1)',
-            borderRadius: '1rem',
-            border: '1px solid rgba(34, 197, 94, 0.2)'
-          }}>
-            <div style={{ 
-              fontSize: '3.5rem', 
-              fontWeight: '900', 
-              color: '#22c55e',
-              marginBottom: '0.5rem'
-            }}>
-              24/7
-            </div>
-            <h3 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '0.5rem' }}>Support</h3>
-            <p style={{ color: '#94a3b8' }}>Dukungan teknis non-stop</p>
+          <div className="faq-grid">
+            {faqs.map((faq, index) => (
+              <div
+                key={index}
+                className={`faq-card ${openFAQIndex === index ? 'active' : ''}`}
+                onClick={() => toggleFAQ(index)}
+              >
+                <div className="faq-question">
+                  <span>{faq.question}</span>
+                  <span className="faq-toggle-icon">
+                    {openFAQIndex === index ? '−' : '+'}
+                  </span>
+                </div>
+                <div className="faq-answer">
+                  <p>{faq.answer}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -375,15 +449,17 @@ const LandingPage = () => {
               }}
             />
             <div className="logo-fallback" style={{ display: 'none' }}>
-              LEN
+              <span>LEN</span>
             </div>
           </div>
-          <p className="footer-text">
-            © 2025 Len Railways System. Seluruh Hak Cipta Dilindungi.
-          </p>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-            PT Len Railway Systems - Solusi Teknologi Kereta Api Terdepan
-          </p>
+          <div className="footer-info">
+            <p className="footer-text">
+              © 2025 Len Railways System. Seluruh Hak Cipta Dilindungi.
+            </p>
+            <p className="footer-subtext">
+              PT Len Railway Systems - Solusi Teknologi Kereta Api Terdepan
+            </p>
+          </div>
         </div>
       </footer>
     </div>

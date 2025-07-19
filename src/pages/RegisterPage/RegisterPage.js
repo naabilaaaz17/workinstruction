@@ -1,431 +1,437 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from 'firebase/auth';
-import { doc, setDoc, enableNetwork, disableNetwork } from 'firebase/firestore';
-import { auth, db } from '../../firebase'; // Sesuaikan path sesuai struktur folder Anda
+import { useNavigate } from 'react-router-dom';
 import './RegisterPage.css';
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import app from '../../firebase';
 import logoLRS from '../assets/images/logoLRS.png';
 
-const RegisterPage = () => {
-    const [formData, setFormData] = useState({
-        namaLengkap: '',
-        idPetugas: '',
-        email: '',
-        password: '',
-        konfirmasiPassword: ''
-    });
+// Icon components untuk styling yang lebih modern
+const EmailIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+  </svg>
+);
 
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
+const UserIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+);
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prevState => ({
-            ...prevState,
-            [name]: value
-        }));
-    };
+const LockIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+    <circle cx="12" cy="16" r="1"/>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  </svg>
+);
 
-    // Fungsi untuk mengecek apakah email sudah terdaftar
-    const checkIfEmailExists = async (email) => {
-        try {
-            const methods = await fetchSignInMethodsForEmail(auth, email);
-            return methods.length > 0;
-        } catch (error) {
-            console.error('Error checking email:', error);
-            return false;
-        }
-    };
+const EyeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
 
-    // Fungsi retry untuk operasi Firestore
-    const retryFirestoreOperation = async (operation, maxRetries = 3) => {
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                return await operation();
-            } catch (error) {
-                console.error(`Attempt ${i + 1} failed:`, error);
-                
-                if (i === maxRetries - 1) {
-                    throw error;
-                }
-                
-                // Wait before retry dengan exponential backoff
-                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
-                
-                // Try to reset network connection
-                try {
-                    await disableNetwork(db);
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    await enableNetwork(db);
-                } catch (networkError) {
-                    console.warn('Network reset failed:', networkError);
-                }
-            }
-        }
-    };
+const EyeOffIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
 
-    // Validasi form yang lebih komprehensif
-    const validateForm = () => {
-        const errors = [];
+const CheckIcon = () => (
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+    <polyline points="22,4 12,14.01 9,11.01"/>
+  </svg>
+);
 
-        if (!formData.namaLengkap.trim()) {
-            errors.push('Nama lengkap harus diisi');
-        } else if (formData.namaLengkap.trim().length < 2) {
-            errors.push('Nama lengkap minimal 2 karakter');
-        }
+const ArrowLeftIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="19" y1="12" x2="5" y2="12"/>
+    <polyline points="12,19 5,12 12,5"/>
+  </svg>
+);
 
-        if (!formData.idPetugas.trim()) {
-            errors.push('ID Petugas harus diisi');
-        } else if (formData.idPetugas.trim().length < 3) {
-            errors.push('ID Petugas minimal 3 karakter');
-        }
+export default function RegisterPage() {
+  // State untuk form data
+  const [formData, setFormData] = useState({
+    email: '',
+    username: '',
+    password: '',
+    confirmPassword: ''
+  });
+  
+  // State untuk UI
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+  
+  const navigate = useNavigate();
+  const auth = getAuth(app);
 
-        if (!formData.email.trim()) {
-            errors.push('Email harus diisi');
-        } else {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(formData.email)) {
-                errors.push('Format email tidak valid');
-            }
-        }
+  // Handle input changes dengan validation real-time
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear error saat user mulai mengetik
+    if (error) setError('');
+  };
 
-        if (!formData.password) {
-            errors.push('Password harus diisi');
-        } else if (formData.password.length < 6) {
-            errors.push('Password minimal 6 karakter');
-        }
+  // Validate form sebelum submit
+  const validateForm = () => {
+    const { email, username, password, confirmPassword } = formData;
+    
+    if (!email.trim()) {
+      setError('Email harus diisi');
+      return false;
+    }
+    
+    if (!email.includes('@') || !email.includes('.')) {
+      setError('Format email tidak valid');
+      return false;
+    }
+    
+    if (!username.trim()) {
+      setError('Username harus diisi');
+      return false;
+    }
+    
+    if (username.length < 3) {
+      setError('Username minimal 3 karakter');
+      return false;
+    }
+    
+    if (!password) {
+      setError('Password harus diisi');
+      return false;
+    }
+    
+    if (password.length < 6) {
+      setError('Password minimal 6 karakter');
+      return false;
+    }
+    
+    if (password !== confirmPassword) {
+      setError('Konfirmasi password tidak cocok');
+      return false;
+    }
+    
+    return true;
+  };
 
-        if (!formData.konfirmasiPassword) {
-            errors.push('Konfirmasi password harus diisi');
-        } else if (formData.password !== formData.konfirmasiPassword) {
-            errors.push('Password dan konfirmasi password tidak cocok');
-        }
+  // Handle register dengan redirect ke login setelah sukses
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    setError('');
+    setSuccessMessage('');
+    
+    try {
+      const { email, username, password } = formData;
+      
+      // Create user dengan email & password
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update profile dengan username
+      await updateProfile(userCredential.user, {
+        displayName: username
+      });
+      
+      // Sign out user setelah berhasil register
+      await auth.signOut();
+      
+      // Show success message
+      setIsSuccess(true);
+      setSuccessMessage('Akun berhasil dibuat! Silakan login untuk melanjutkan.');
+      
+      // Redirect ke halaman login setelah 3 detik
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { 
+            successMessage: 'Akun berhasil dibuat! Silakan login dengan akun baru Anda.',
+            registeredEmail: email
+          } 
+        });
+      }, 3000);
+      
+    } catch (err) {
+      console.error('Registration error:', err);
+      
+      // Handle specific Firebase errors
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          setError('Email sudah terdaftar. Silakan gunakan email lain atau login.');
+          break;
+        case 'auth/weak-password':
+          setError('Password terlalu lemah. Gunakan minimal 6 karakter.');
+          break;
+        case 'auth/invalid-email':
+          setError('Format email tidak valid.');
+          break;
+        case 'auth/network-request-failed':
+          setError('Koneksi internet bermasalah. Coba lagi.');
+          break;
+        default:
+          setError('Terjadi kesalahan. Silakan coba lagi.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        return errors;
-    };
+  // Handle navigation ke login
+  const handleLoginRedirect = () => {
+    navigate('/login');
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        // Validasi form
-        const validationErrors = validateForm();
-        if (validationErrors.length > 0) {
-            alert(validationErrors.join('\n'));
-            return;
-        }
+  // Handle cancel/back
+  const handleCancel = () => {
+    navigate(-1);
+  };
 
-        setIsLoading(true);
+  // Handle logo click - Navigate to LandingPage
+  const handleLogoClick = () => {
+    navigate('/');
+  };
 
-        try {
-            // 1. Cek apakah email sudah terdaftar
-            const emailExists = await checkIfEmailExists(formData.email);
-            if (emailExists) {
-                alert('Email sudah terdaftar. Silakan gunakan email lain atau login.');
-                return;
-            }
+  return (
+    <div className="modern-register-container">
+      {/* Background Pattern */}
+      <div className="background-pattern">
+        <div className="pattern-circle circle-1"></div>
+        <div className="pattern-circle circle-2"></div>
+        <div className="pattern-circle circle-3"></div>
+      </div>
 
-            // 2. Buat user di Firebase Authentication
-            const userCredential = await createUserWithEmailAndPassword(
-                auth, 
-                formData.email, 
-                formData.password
-            );
-            
-            const user = userCredential.user;
-            const timestamp = new Date().toISOString();
-
-            // 3. Simpan data ke Firestore dengan retry mechanism
-            await retryFirestoreOperation(async () => {
-                // Simpan data user
-                await setDoc(doc(db, 'users', user.uid), {
-                    namaLengkap: formData.namaLengkap.trim(),
-                    idPetugas: formData.idPetugas.trim(),
-                    email: formData.email.toLowerCase(),
-                    role: 'petugas',
-                    createdAt: timestamp,
-                    updatedAt: timestamp
-                });
-            });
-
-            // 4. Simpan data petugas terpisah dengan retry
-            await retryFirestoreOperation(async () => {
-                await setDoc(doc(db, 'petugas', formData.idPetugas.trim()), {
-                    uid: user.uid,
-                    namaLengkap: formData.namaLengkap.trim(),
-                    idPetugas: formData.idPetugas.trim(),
-                    email: formData.email.toLowerCase(),
-                    status: 'active',
-                    createdAt: timestamp
-                });
-            });
-
-            // Reset form
-            setFormData({
-                namaLengkap: '',
-                idPetugas: '',
-                email: '',
-                password: '',
-                konfirmasiPassword: ''
-            });
-
-            // Tampilkan modal success
-            setShowSuccessModal(true);
-
-        } catch (error) {
-            console.error('Error saat registrasi:', error);
-            
-            // Handle berbagai jenis error Firebase
-            let errorMessage = 'Terjadi kesalahan saat registrasi.';
-            
-            switch (error.code) {
-                case 'auth/email-already-in-use':
-                    errorMessage = 'Email sudah terdaftar. Silakan gunakan email lain.';
-                    break;
-                case 'auth/invalid-email':
-                    errorMessage = 'Format email tidak valid.';
-                    break;
-                case 'auth/weak-password':
-                    errorMessage = 'Password terlalu lemah. Gunakan minimal 6 karakter.';
-                    break;
-                case 'auth/network-request-failed':
-                    errorMessage = 'Koneksi internet bermasalah. Periksa koneksi Anda dan coba lagi.';
-                    break;
-                case 'auth/too-many-requests':
-                    errorMessage = 'Terlalu banyak percobaan. Coba lagi setelah beberapa menit.';
-                    break;
-                case 'permission-denied':
-                    errorMessage = 'Akses ditolak. Periksa konfigurasi database.';
-                    break;
-                case 'unavailable':
-                    errorMessage = 'Layanan sedang tidak tersedia. Coba lagi nanti.';
-                    break;
-                default:
-                    if (error.message.includes('Failed to get document')) {
-                        errorMessage = 'Masalah koneksi database. Coba lagi.';
-                    } else if (error.message.includes('network')) {
-                        errorMessage = 'Masalah jaringan. Periksa koneksi internet Anda.';
-                    } else {
-                        errorMessage = `Registrasi gagal: ${error.message}`;
-                    }
-            }
-            
-            alert(errorMessage);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleSuccessModalClose = () => {
-        setShowSuccessModal(false);
-        // Redirect ke halaman login
-        window.location.href = '/login';
-        // Atau jika menggunakan React Router:
-        // navigate('/login');
-    };
-
-    const togglePasswordVisibility = () => {
-        setShowPassword(!showPassword);
-    };
-
-    const toggleConfirmPasswordVisibility = () => {
-        setShowConfirmPassword(!showConfirmPassword);
-    };
-
-    return (
-        <div className="register-container">
-            <div className="register-left">
-                <div className="logo">
-                    <img src={logoLRS} alt="Len Railway Systems" className="register-header-logo" />
-                </div>
-
-                <div className="register-form-section">
-                    <h1 className="register-title">REGISTER</h1>
-                    <p className="register-subtitle">Lengkapi data berikut untuk mendaftar</p>
-
-                    <form onSubmit={handleSubmit} className="register-form">
-                        <div className="form-group">
-                            <label htmlFor="namaLengkap">NAMA LENGKAP*</label>
-                            <input
-                                type="text"
-                                id="namaLengkap"
-                                name="namaLengkap"
-                                placeholder="Masukkan nama lengkap"
-                                value={formData.namaLengkap}
-                                onChange={handleInputChange}
-                                disabled={isLoading}
-                                required
-                                minLength="2"
-                                maxLength="100"
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="idPetugas">ID PETUGAS*</label>
-                            <input
-                                type="text"
-                                id="idPetugas"
-                                name="idPetugas"
-                                placeholder="Masukkan ID petugas"
-                                value={formData.idPetugas}
-                                onChange={handleInputChange}
-                                disabled={isLoading}
-                                required
-                                minLength="3"
-                                maxLength="50"
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="email">EMAIL*</label>
-                            <input
-                                type="email"
-                                id="email"
-                                name="email"
-                                placeholder="contoh@email.com"
-                                value={formData.email}
-                                onChange={handleInputChange}
-                                disabled={isLoading}
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="password">PASSWORD*</label>
-                            <div className="password-input-container">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    id="password"
-                                    name="password"
-                                    placeholder="••••••••"
-                                    value={formData.password}
-                                    onChange={handleInputChange}
-                                    disabled={isLoading}
-                                    required
-                                    minLength="6"
-                                />
-                                <button
-                                    type="button"
-                                    className="password-toggle"
-                                    onClick={togglePasswordVisibility}
-                                    disabled={isLoading}
-                                    aria-label="Toggle password visibility"
-                                >
-                                    {showPassword ? '🙈' : '👁️'}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="konfirmasiPassword">KONFIRMASI PASSWORD*</label>
-                            <div className="password-input-container">
-                                <input
-                                    type={showConfirmPassword ? "text" : "password"}
-                                    id="konfirmasiPassword"
-                                    name="konfirmasiPassword"
-                                    placeholder="••••••••"
-                                    value={formData.konfirmasiPassword}
-                                    onChange={handleInputChange}
-                                    disabled={isLoading}
-                                    required
-                                    minLength="6"
-                                />
-                                <button
-                                    type="button"
-                                    className="password-toggle"
-                                    onClick={toggleConfirmPasswordVisibility}
-                                    disabled={isLoading}
-                                    aria-label="Toggle confirm password visibility"
-                                >
-                                    {showConfirmPassword ? '🙈' : '👁️'}
-                                </button>
-                            </div>
-                        </div>
-
-                        <button 
-                            type="submit" 
-                            className="register-button"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? 'Mendaftar...' : 'Daftar'}
-                        </button>
-                    </form>
-
-                    <div className="login-link">
-                        <span>Sudah punya akun? </span>
-                        <a href="/login">Masuk di Sini</a>
-                    </div>
-                </div>
+      {/* Header - Outside the card */}
+      <div className="page-header">
+        <div className="header-left">
+          <button 
+            onClick={handleCancel}
+            className="back-button"
+            aria-label="Kembali"
+          >
+            <ArrowLeftIcon />
+          </button>
+          
+          <div 
+            className="logo-section"
+            onClick={handleLogoClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleLogoClick();
+              }
+            }}
+            aria-label="Kembali ke halaman utama"
+          >
+            <img 
+              src={logoLRS} 
+              alt="Len Railway Systems" 
+              className="company-logo" 
+            />
+            <div className="company-info">
+              <h3>Len Railway Systems</h3>
+              <p>Digital Transformation</p>
             </div>
-
-            <div className="register-right">
-                <div className="features-section">
-                    <h2 className="features-title">
-                        Optimalkan<br />
-                        <span className="highlight">Manajemen Proyek</span><br />
-                        Anda dengan<br />
-                        <span className="highlight-light">Work Instruction</span>
-                    </h2>
-                    
-                    <p className="features-description">
-                        Pantau kemajuan tim dan pekerja secara real-time untuk 
-                        memaksimalkan efisiensi kerja. Pastikan setiap langkah 
-                        tercatat dengan baik untuk hasil yang maksimal.
-                    </p>
-
-                    <div className="features-list">
-                        <div className="feature-item">
-                            <div className="feature-icon chart-icon">📊</div>
-                            <div className="feature-content">
-                                <h3>Real-time Monitoring</h3>
-                                <p>Pantau progress secara langsung</p>
-                            </div>
-                        </div>
-
-                        <div className="feature-item">
-                            <div className="feature-icon task-icon">✅</div>
-                            <div className="feature-content">
-                                <h3>Task Management</h3>
-                                <p>Kelola tugas dengan mudah</p>
-                            </div>
-                        </div>
-
-                        <div className="feature-item">
-                            <div className="feature-icon progress-icon">📈</div>
-                            <div className="feature-content">
-                                <h3>Progress Tracking</h3>
-                                <p>Lacak kemajuan proyek</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Success Modal */}
-            {showSuccessModal && (
-                <div className="modal-overlay">
-                    <div className="success-modal">
-                        <div className="success-icon">
-                            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="12" cy="12" r="10" fill="#4CAF50"/>
-                                <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        </div>
-                        <h2 className="success-title">Registrasi Berhasil!</h2>
-                        <p className="success-message">
-                            Akun Anda telah berhasil dibuat. Sekarang Anda dapat masuk menggunakan email dan password yang telah didaftarkan.
-                        </p>
-                        <button 
-                            className="success-button"
-                            onClick={handleSuccessModalClose}
-                        >
-                            Lanjut ke Halaman Login
-                        </button>
-                    </div>
-                </div>
-            )}
+          </div>
         </div>
-    );
-};
+      </div>
 
-export default RegisterPage;
+      <div className="register-card">
+        {/* Main Content */}
+        <div className="register-content">
+          {!isSuccess ? (
+            <>
+              <div className="register-intro">
+                <h1>Buat Akun Baru</h1>
+                <p>Bergabunglah dengan platform manajemen proyek terdepan untuk efisiensi maksimal</p>
+              </div>
+
+              <form className="modern-register-form" onSubmit={handleRegister}>
+                {/* Email Input */}
+                <div className="form-group">
+                  <label htmlFor="email">Email Address</label>
+                  <div className="input-container">
+                    <div className="input-icon">
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      className="form-input"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      placeholder="Masukkan email"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Username Input */}
+                <div className="form-group">
+                  <label htmlFor="username">Username</label>
+                  <div className="input-container">
+                    <input
+                      id="username"
+                      type="text"
+                      className="form-input"
+                      value={formData.username}
+                      onChange={(e) => handleInputChange('username', e.target.value)}
+                      placeholder="Masukkan username"
+                      disabled={isLoading}
+                      required/>
+                  </div>
+                </div>
+
+                {/* Password Input */}
+                <div className="form-group">
+                  <label htmlFor="password">Password</label>
+                  <div className="input-container">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      className="form-input"
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      disabled={isLoading}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isLoading}
+                      aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                    >
+                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password Input */}
+                <div className="form-group">
+                  <label htmlFor="confirmPassword">Konfirmasi Password</label>
+                  <div className="input-container">
+                    <input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      className="form-input"
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      placeholder="Ulangi password"
+                      disabled={isLoading}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      disabled={isLoading}
+                      aria-label={showConfirmPassword ? "Sembunyikan konfirmasi password" : "Tampilkan konfirmasi password"}
+                    >
+                      {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="error-message" role="alert">
+                    <div className="error-icon">⚠️</div>
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  className={`submit-button ${isLoading ? 'loading' : ''}`}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="spinner"></div>
+                      <span>Membuat akun...</span>
+                    </>
+                  ) : (
+                    'Buat Akun'
+                  )}
+                </button>
+
+                {/* Login Link */}
+                <div className="form-footer">
+                  <p>
+                    Sudah punya akun? {' '}
+                    <button 
+                      type="button"
+                      onClick={handleLoginRedirect} 
+                      className="link-button"
+                    >
+                      Masuk di sini
+                    </button>
+                  </p>
+                </div>
+              </form>
+            </>
+          ) : (
+            /* Success State */
+            <div className="success-container">
+              <div className="success-animation">
+                <div className="success-icon">
+                  <CheckIcon />
+                </div>
+              </div>
+              
+              <div className="success-content">
+                <h2>Selamat! Akun Berhasil Dibuat</h2>
+                <p>Terima kasih telah bergabung dengan Len Railway Systems. Akun Anda telah berhasil dibuat dan siap digunakan.</p>
+                
+                <div className="success-details">
+                  <div className="detail-item">
+                    <strong>Email:</strong> {formData.email}
+                  </div>
+                  <div className="detail-item">
+                    <strong>Username:</strong> {formData.username}
+                  </div>
+                </div>
+
+                <div className="redirect-info">
+                  <div className="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <p>Anda akan diarahkan ke halaman login dalam beberapa detik...</p>
+                </div>
+
+                <button 
+                  onClick={handleLoginRedirect}
+                  className="goto-login-btn"
+                >
+                  Masuk Sekarang
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
