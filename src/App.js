@@ -9,6 +9,9 @@ import AdminPage from './pages/AdminPage/AdminPage';
 import ProgressPage from './pages/ProgressPage/ProgressPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ReportPage from './pages/ReportPage/ReportPage';
+import AddTaskPage from './pages/AdminPage/AddTaskPage';
+import ReportAdmin from './pages/AdminPage/reportAdmin';
+import SettingPage from './pages/SettingPage/SettingPage';
 
 function App() {
   return (
@@ -43,6 +46,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute akses="karyawan">
+              <SettingPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin routes */}
         <Route
@@ -53,8 +64,38 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/progress" element={<ProgressPage />} />
-        <Route path="/report" element={<ReportPage />} />
+        <Route
+  path="/progress"
+  element={
+    <ProtectedRoute akses="karyawan">
+      <ProgressPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/report"
+  element={
+    <ProtectedRoute akses="karyawan">
+      <ReportPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/addTask"
+  element={
+    <ProtectedRoute akses="admin">
+      <AddTaskPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/reportadmin"
+  element={
+    <ProtectedRoute akses="admin">
+      <ReportAdmin />
+    </ProtectedRoute>
+  }
+/>
 
       </Routes>
     </Router>

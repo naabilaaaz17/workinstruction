@@ -1,196 +1,334 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../../firebase';
+import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
+import { db, auth } from '../../firebase'; // Adjusted import - removed storage
+import { User, LogOut, ArrowLeft } from 'lucide-react';
 import './ProfilePage.css';
+import logoLRS from '../assets/images/logoLRS.png';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 
-const ProfilePage = ({ onBack }) => {
-  const [userData, setUserData] = useState({
-    nama: '',
-    idPetugas: '',
+const ProfilePage = () => {
+  const navigate = useNavigate();
+  const [userInfo, setUserInfo] = useState({
+    displayName: '',
     email: '',
-    avatar: '',
+    uid: '',
+    photoURL: ''
   });
-  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [newDisplayName, setNewDisplayName] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
-    loadUserProfile();
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchUserData();
+      } else {
+        navigate('/login');
+      }
+    });
 
-  const loadUserProfile = async () => {
+    return () => unsubscribe();
+  }, [navigate]);
+
+  const fetchUserData = async () => {
     try {
       const user = auth.currentUser;
-      if (!user) return;
-
-      // Load from localStorage first
-      const savedData = localStorage.getItem(`user_${user.uid}`);
-      if (savedData) {
-        const data = JSON.parse(savedData);
-        setUserData(prev => ({ ...prev, ...data }));
-      }
-
-      // Then try to load from Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setUserData({
-          nama: data.nama || user.displayName || '',
-          idPetugas: data.idPetugas || '',
-          email: data.email || user.email || '',
-          avatar: data.avatar || user.photoURL || '',
-        });
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserInfo({
+            displayName: userData.displayName || 'Nama tidak tersedia',
+            email: userData.email || user.email,
+            uid: userData.uid || user.uid,
+            photoURL: userData.photoURL || user.photoURL || ''
+          });
+          setNewDisplayName(userData.displayName || '');
+        } else {
+          // If document doesn't exist, use auth user data
+          setUserInfo({
+            displayName: user.displayName || 'Nama tidak tersedia',
+            email: user.email,
+            uid: user.uid,
+            photoURL: user.photoURL || ''
+          });
+          setNewDisplayName(user.displayName || '');
+        }
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('Error fetching user data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  const updateUserProfile = async () => {
+    setUpdating(true);
     try {
       const user = auth.currentUser;
-      if (!user) return;
-
-      // Update Firebase Auth profile
-      if (userData.nama !== user.displayName) {
-        await updateProfile(user, {
-          displayName: userData.nama
-        });
+      if (!user) {
+        throw new Error('User not authenticated. Silakan login ulang.');
       }
 
-      // Update Firestore
-      await updateDoc(doc(db, 'users', user.uid), {
-        nama: userData.nama,
+      const updateData = {
+        displayName: newDisplayName
+      };
+
+      console.log('🔄 Updating Firebase Auth profile...');
+      // Update Firebase Auth profile (only displayName)
+      await updateProfile(user, updateData);
+      console.log('✅ Auth profile updated');
+
+      console.log('🔄 Updating Firestore document...');
+      // Update Firestore document (only displayName)
+      const userDocRef = doc(db, 'users', user.uid);
+      const firestoreData = {
+        displayName: newDisplayName,
         updatedAt: new Date()
-      });
+      };
 
-      // Update localStorage
-      localStorage.setItem(`user_${user.uid}`, JSON.stringify(userData));
+      await updateDoc(userDocRef, firestoreData);
+      console.log('✅ Firestore document updated');
 
-      setIsEditing(false);
-      alert('Profile berhasil diperbarui!');
+      // Update local state
+      setUserInfo(prev => ({
+        ...prev,
+        displayName: newDisplayName
+      }));
+
+      // Reset edit mode
+      setEditMode(false);
+      
+      console.log('✅ Profile update completed successfully');
+      alert('Nama berhasil diperbarui!');
+      
     } catch (error) {
-      console.error('Error saving profile:', error);
-      alert('Gagal menyimpan profile. Silakan coba lagi.');
+      console.error('❌ Profile update error:', error);
+      
+      // Handle specific errors
+      let errorMessage = 'Gagal memperbarui nama. ';
+      
+      if (error.code === 'auth/network-request-failed') {
+        errorMessage += 'Masalah jaringan. Periksa koneksi internet.';
+      } else if (error.message.includes('User not authenticated')) {
+        errorMessage += 'Sesi login expired. Silakan login ulang.';
+      } else {
+        errorMessage += error.message;
+      }
+      
+      alert(errorMessage);
     } finally {
-      setSaving(false);
+      setUpdating(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setUserData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleLogout = async () => {
+    if (window.confirm('Apakah Anda yakin ingin logout?')) {
+      try {
+        await signOut(auth);
+        
+        // Clear localStorage data
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('previousStats');
+        
+        alert('Logout berhasil!');
+        navigate('/login');
+      } catch (error) {
+        console.error('Error during logout:', error);
+        alert('Terjadi kesalahan saat logout: ' + error.message);
+      }
+    }
+  };
+
+  const handleBackToHome = () => {
+    navigate('/home');
+  };
+
+  const generateUserId = (uid) => {
+    if (!uid) return 'ID tidak tersedia';
+    return uid.substring(0, 8).toUpperCase();
   };
 
   if (loading) {
     return (
-      <div className="profile-page">
-        <div className="loading-container">
+      <div className="loading-container">
+        <div className="loading-content">
           <div className="loading-spinner"></div>
-          <p>Loading profile...</p>
+          <p className="loading-text">Memuat data profil...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="profile-page">
-      <div className="profile-header">
-        <button className="back-btn" onClick={onBack}>
-          ← Kembali
-        </button>
-        <h1>Profile Saya</h1>
-      </div>
-
-      <div className="profile-content">
-        <div className="profile-card">
-          <div className="profile-avatar-section">
-            <div className="profile-avatar-large">
-              {userData.avatar ? (
-                <img src={userData.avatar} alt="Profile" />
-              ) : (
-                <span className="avatar-initial-large">
-                  {userData.nama ? userData.nama.charAt(0).toUpperCase() : 'U'}
-                </span>
-              )}
-            </div>
-            <div className="profile-basic-info">
-              <h2>{userData.nama || 'User'}</h2>
-              <p className="profile-id">ID: {userData.idPetugas}</p>
-              <p className="profile-email">{userData.email}</p>
-            </div>
+    <div className="profile-page-container">
+      {/* Header Bar */}
+      <div className="profile-header-bar">
+        <div className="profile-header-content">
+          <div className="profile-header-left">
+            <button 
+              className="profile-back-btn"
+              onClick={handleBackToHome}
+              title="Kembali ke Home"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <img 
+              src={logoLRS} 
+              alt="Len Railway Systems" 
+              className="profile-logo"
+              onClick={handleBackToHome}
+            />
           </div>
+          
+          <div className="profile-header-center">
+            <h1 className="profile-title-header">Profile</h1>
+          </div>
+          
+          <div className="profile-header-right">
+            <div className="profile-header-profile-container">
+              <button
+                className="profile-header-profile-btn"
+                onClick={() => setShowDropdown(!showDropdown)}
+              >
+                <div className="profile-header-profile-avatar">
+                  {userInfo.photoURL ? (
+                    <img src={userInfo.photoURL} alt="Avatar" className="profile-header-avatar-image" />
+                  ) : (
+                    <span className="profile-header-avatar-text">
+                      {userInfo.displayName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="profile-header-profile-info">
+                  <div className="profile-header-profile-name">{userInfo.displayName}</div>
+                  <div className="profile-header-profile-id">ID: {generateUserId(userInfo.uid)}</div>
+                </div>
+              </button>
 
-          <div className="profile-form-section">
-            <div className="form-actions">
-              {!isEditing ? (
-                <button 
-                  className="edit-btn"
-                  onClick={() => setIsEditing(true)}
-                >
-                  Edit Profile
-                </button>
-              ) : (
-                <div className="edit-actions">
-                  <button 
-                    className="save-btn"
-                    onClick={handleSave}
-                    disabled={saving}
-                  >
-                    {saving ? 'Menyimpan...' : 'Simpan'}
+              {showDropdown && (
+                <div className="profile-header-dropdown-menu">
+                  <div className="profile-header-dropdown-header">
+                    <div className="profile-header-profile-avatar">
+                      {userInfo.photoURL ? (
+                        <img src={userInfo.photoURL} alt="Avatar" className="profile-header-avatar-image" />
+                      ) : (
+                        <span className="profile-header-avatar-text">
+                          {userInfo.displayName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="profile-header-dropdown-info">
+                      <div className="profile-header-dropdown-name">{userInfo.displayName}</div>
+                      <div className="profile-header-dropdown-email">{userInfo.email}</div>
+                      <div className="profile-header-dropdown-id">ID: {generateUserId(userInfo.uid)}</div>
+                    </div>
+                  </div>
+                  <button className="profile-header-dropdown-item" onClick={() => setShowDropdown(false)}>
+                    <User className="profile-header-dropdown-icon" />
+                    <span>Profile</span>
                   </button>
-                  <button 
-                    className="cancel-btn"
-                    onClick={() => {
-                      setIsEditing(false);
-                      loadUserProfile(); // Reset data
-                    }}
-                    disabled={saving}
-                  >
-                    Batal
+                  <hr className="profile-header-dropdown-divider" />
+                  <button className="profile-header-dropdown-item logout" onClick={handleLogout}>
+                    <LogOut className="profile-header-dropdown-icon" />
+                    <span>Logout</span>
                   </button>
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      </div>
 
-            <div className="profile-form">
-              <div className="form-group">
-                <label>Nama Lengkap</label>
-                <input
-                  type="text"
-                  name="nama"
-                  value={userData.nama}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  placeholder="Masukkan nama lengkap"
-                />
+      {/* Main Content */}
+      <div className="profile-main-content">
+        <div className="profile-container">
+          <div className="profile-card">
+            <div className="profile-header">
+              <h2>Informasi Akun</h2>
+            </div>
+
+            <div className="profile-content">
+              {/* Profile Image Section - Display Only */}
+              <div className="profile-image-section">
+                <div className="profile-image-container">
+                  <img
+                    src={userInfo.photoURL || '/default-avatar.png'}
+                    alt="Profile"
+                    className="profile-image"
+                    onError={(e) => {
+                      e.target.src = '/default-avatar.png';
+                    }}
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>ID Petugas</label>
-                <input
-                  type="text"
-                  value={userData.idPetugas}
-                  disabled={true}
-                  placeholder="ID Petugas (otomatis)"
-                />
+              {/* Profile Information */}
+              <div className="profile-info">
+                <div className="info-item">
+                  <label>Nama:</label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={newDisplayName}
+                      onChange={(e) => setNewDisplayName(e.target.value)}
+                      className="edit-input"
+                      placeholder="Masukkan nama"
+                    />
+                  ) : (
+                    <span className="info-value">{userInfo.displayName}</span>
+                  )}
+                </div>
+
+                <div className="info-item">
+                  <label>Email:</label>
+                  <span className="info-value">{userInfo.email}</span>
+                </div>
+
+                <div className="info-item">
+                  <label>ID:</label>
+                  <span className="info-value user-id">{generateUserId(userInfo.uid)}</span>
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>Email</label>
-                <input
-                  type="email"
-                  value={userData.email}
-                  disabled={true}
-                  placeholder="Email (tidak dapat diubah)"
-                />
+              {/* Action Buttons */}
+              <div className="profile-actions">
+                {!editMode ? (
+                  <button
+                    onClick={() => setEditMode(true)}
+                    className="edit-button"
+                  >
+                    Edit Nama
+                  </button>
+                ) : (
+                  <div className="edit-actions">
+                    <button
+                      onClick={updateUserProfile}
+                      disabled={updating}
+                      className="save-button"
+                    >
+                      {updating ? 'Menyimpan...' : 'Simpan'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditMode(false);
+                        setNewDisplayName(userInfo.displayName);
+                      }}
+                      disabled={updating}
+                      className="cancel-button"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

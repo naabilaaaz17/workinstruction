@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator, initializeFirestore } from "firebase/firestore";
+import { getStorage, connectStorageEmulator } from "firebase/storage"; // ← Tambahkan import storage
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3zcD5eay3FbT1yqrNs7TnFUIKKm_0I0U",
@@ -44,6 +45,9 @@ try {
 
 export { db };
 
+// Initialize Storage - TAMBAHAN BARU
+export const storage = getStorage(app);
+
 // Initialize Analytics dengan error handling yang lebih baik
 let analytics = null;
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
@@ -64,6 +68,11 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_EMULATOR
     
     if (!db._delegate._databaseId.projectId.includes('demo-')) {
       connectFirestoreEmulator(db, 'localhost', 8080);
+    }
+
+    // Connect Storage Emulator jika diperlukan
+    if (process.env.REACT_APP_USE_STORAGE_EMULATOR === 'true') {
+      connectStorageEmulator(storage, 'localhost', 9199);
     }
   } catch (error) {
     console.warn('Emulator connection failed:', error);
@@ -97,6 +106,16 @@ export const safeFirestoreOperation = async (operation) => {
       console.warn('Using localStorage fallback due to Firestore error');
       throw new Error('FALLBACK_REQUIRED');
     }
+    throw error;
+  }
+};
+
+// Utility function untuk Storage operations dengan error handling
+export const safeStorageOperation = async (operation) => {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error('Storage operation error:', error);
     throw error;
   }
 };
