@@ -1,0 +1,913 @@
+/* StepNotesModal.css - Enhanced with better scrolling */
+
+/* Modal overlay */
+.step-notes-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Main modal */
+.step-notes-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideIn 0.3s ease-out;
+  position: relative;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Modal header */
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 2px solid #f1f5f9;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scroll-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scroll-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.scroll-btn:active {
+  transform: translateY(0);
+}
+
+.team-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-left: 12px;
+}
+
+.modal-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* Modal body - MAIN SCROLLABLE AREA */
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Step info */
+.step-info {
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.step-info h4 {
+  margin: 0 0 16px 0;
+  color: #1e293b;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.team-status {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.current-operators,
+.team-members {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.current-operators strong,
+.team-members strong {
+  color: #475569;
+  font-size: 0.9rem;
+  margin-right: 4px;
+}
+
+.operators-list,
+.members-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.operator,
+.team-member {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.operator.current-user,
+.team-member.current-user {
+  background: #10b981;
+  color: white;
+}
+
+.no-operators {
+  color: #64748b;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* Notes content */
+.notes-content {
+  padding: 0;
+}
+
+/* Note input section */
+.note-input-section {
+  padding: 24px;
+  background: white;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.note-input-section h4 {
+  margin: 0 0 20px 0;
+  color: #1e293b;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Quick actions */
+.quick-actions {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.quick-actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.quick-actions-title {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.toggle-quick-actions {
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 4px 0;
+}
+
+.toggle-quick-actions:hover {
+  color: #4f46e5;
+}
+
+.show-quick-actions {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.show-quick-actions:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.quick-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quick-action-btn {
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quick-action-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.quick-action-btn.start { border-left: 3px solid #10b981; }
+.quick-action-btn.complete { border-left: 3px solid #059669; }
+.quick-action-btn.issue { border-left: 3px solid #ef4444; }
+.quick-action-btn.help { border-left: 3px solid #f59e0b; }
+.quick-action-btn.suggestion { border-left: 3px solid #8b5cf6; }
+.quick-action-btn.troubleshoot { border-left: 3px solid #06b6d4; }
+.quick-action-btn.progress { border-left: 3px solid #3b82f6; }
+.quick-action-btn.pause { border-left: 3px solid #6b7280; }
+
+.quick-actions-help {
+  background: #eff6ff;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.quick-actions-help small {
+  color: #1e40af;
+  line-height: 1.4;
+}
+
+/* Note input container */
+.note-input-container {
+  margin-bottom: 20px;
+}
+
+.manual-note-input {
+  width: 100%;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+  max-height: 200px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  outline: none;
+}
+
+.manual-note-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.manual-note-input:disabled {
+  background: #f8fafc;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.input-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.char-counter {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.char-counter .warning {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.input-shortcuts small {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+/* Note actions */
+.note-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.save-note-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.save-note-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.save-note-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.clear-note-btn {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clear-note-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.clear-note-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Completion prompt */
+.completion-prompt {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.prompt-icon {
+  font-size: 1.2rem;
+}
+
+.prompt-title {
+  font-weight: 600;
+  color: #92400e;
+}
+
+.completion-prompt p {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Notes history section */
+.notes-history-section {
+  padding: 24px;
+  background: #fafafa;
+  border-top: 1px solid #e2e8f0;
+  scroll-margin-top: 20px;
+}
+
+.notes-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.notes-history-header h4 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.no-notes-hint {
+  color: #9ca3af;
+  font-weight: normal;
+  font-size: 0.9rem;
+  margin-left: 8px;
+}
+
+.scroll-to-latest {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scroll-to-latest:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+/* Notes list */
+.notes-list {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+.notes-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notes-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.notes-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.notes-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.note-item {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  scroll-margin-top: 10px;
+}
+
+.note-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.note-item:first-child {
+  border-left: 3px solid #10b981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+}
+
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.note-author strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.you-badge {
+  background: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.system-badge {
+  background: #6366f1;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.note-time {
+  color: #6b7280;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.note-content {
+  color: #374151;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.note-significance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #ecfdf5;
+  border-radius: 8px;
+  border-left: 3px solid #10b981;
+}
+
+.note-significance small {
+  color: #065f46;
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+/* Empty notes */
+.empty-notes {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.empty-notes-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-notes p {
+  margin: 8px 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.empty-notes p:first-of-type {
+  color: #374151;
+  font-weight: 500;
+}
+
+/* Modal footer */
+.modal-footer {
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.footer-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.footer-info small {
+  color: #475569;
+  line-height: 1.4;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.close-modal-btn {
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.close-modal-btn:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .step-notes-modal-overlay {
+    padding: 10px;
+  }
+
+  .step-notes-modal {
+    max-width: 100%;
+    max-height: 95vh;
+    border-radius: 12px;
+  }
+
+  .modal-header {
+    padding: 16px 20px;
+  }
+
+  .modal-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .team-badge {
+    font-size: 0.75rem;
+    margin-left: 8px;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .scroll-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .note-input-section,
+  .notes-history-section {
+    padding: 16px;
+  }
+
+  .quick-action-buttons {
+    gap: 6px;
+  }
+
+  .quick-action-btn {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+
+  .note-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .save-note-btn,
+  .clear-note-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .footer-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .notes-list {
+    max-height: 300px;
+  }
+
+  .note-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .team-status {
+    gap: 8px;
+  }
+
+  .current-operators,
+  .team-members {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .step-notes-modal {
+    border-radius: 8px;
+  }
+
+  .modal-header {
+    padding: 12px 16px;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .note-input-section,
+  .notes-history-section {
+    padding: 12px;
+  }
+
+  .manual-note-input {
+    min-height: 80px;
+    padding: 12px;
+  }
+
+  .quick-actions {
+    padding: 16px;
+  }
+
+  .note-item {
+    padding: 12px;
+  }
+}
+
+/* Focus and accessibility improvements */
+.quick-action-btn:focus,
+.save-note-btn:focus,
+.clear-note-btn:focus,
+.close-modal-btn:focus,
+.scroll-btn:focus {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.manual-note-input:focus {
+  outline: none;
+}
+
+/* Print styles */
+@media print {
+  .step-notes-modal-overlay {
+    position: relative;
+    background: none;
+    backdrop-filter: none;
+    padding: 0;
+  }
+
+  .step-notes-modal {
+    box-shadow: none;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .modal-header {
+    background: none;
+    color: black;
+    border-bottom: 2px solid #000;
+  }
+
+  .header-actions {
+    display: none;
+  }
+
+  .note-input-section {
+    display: none;
+  }
+
+  .modal-footer {
+    display: none;
+  }
+}

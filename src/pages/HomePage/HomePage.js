@@ -39,6 +39,9 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // 🔥 ADDED: Real-time listener state
+  const [realtimeUnsubscribe, setRealtimeUnsubscribe] = useState(null);
+
   // Static task yang selalu ditampilkan
   const staticTask = {
     id: '1',
@@ -151,69 +154,275 @@ const HomePage = () => {
     }
   };
 
-  // FIXED: Load work sessions with real-time updates using the same approach as ProgressPage
+  // 🔥 FIXED: Complete work sessions loading with real-time updates matching ProgressPage
   const loadWorkSessions = async (userId) => {
     try {
-      console.log('📊 [HomePage] Loading work sessions for user:', userId);
+      console.log('📊 [HomePage] Setting up COMPLETE real-time listener for user:', userId);
+
+      // Clean up existing listener first
+      if (realtimeUnsubscribe) {
+        console.log('🧹 [HomePage] Cleaning up previous listener');
+        realtimeUnsubscribe();
+      }
 
       const sessionsRef = collection(db, 'workSessions');
       
-      // Setup real-time listener like in ProgressPage
-      const q = query(
-        sessionsRef,
-        where('userId', '==', userId)
+      // 🔥 FIXED: Use multiple query strategies matching ProgressPage
+      let activeQuery;
+      
+      try {
+        // Strategy 1: Use operatorId (TaskPage standard)
+        activeQuery = query(
+          sessionsRef,
+          where('operatorId', '==', userId),
+          where('type', '==', 'work_session')
+        );
+      } catch (error) {
+        console.warn('⚠️ [HomePage] operatorId compound query failed, using simple query:', error);
+        
+        // Fallback: Simple operatorId query
+        activeQuery = query(
+          sessionsRef,
+          where('operatorId', '==', userId)
+        );
+      }
+
+      // Setup real-time listener with COMPLETE session mapping (matching ProgressPage)
+      const unsubscribe = onSnapshot(activeQuery, 
+        (snapshot) => {
+          console.log('📡 [HomePage] REAL-TIME UPDATE received:', snapshot.size, 'documents');
+          
+          const sessions = [];
+          const sessionIds = new Set();
+
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // Skip duplicates
+            if (sessionIds.has(doc.id)) {
+              console.log('⚠️ [HomePage] Duplicate session detected:', doc.id);
+              return;
+            }
+
+            // Only include work_session type
+            if (data.type !== 'work_session') {
+              return;
+            }
+
+            sessionIds.add(doc.id);
+
+            // 🔥 FIXED: Complete field mapping from TaskPage to HomePage (matching ProgressPage)
+            const mappedSession = {
+              id: doc.id,
+              
+              // Basic task info - map from TaskPage fields
+              workInstructionTitle: data.taskName || data.workInstructionTitle || 'Unknown Task',
+              workInstructionId: data.taskId || data.workInstructionId || 'unknown',
+              moNumber: data.moNumber || data.moDisplay || 'No MO',
+              
+              // Operator info - use TaskPage operatorId
+              operatorId: data.operatorId || data.createdBy,
+              operatorName: data.operatorName || 'Unknown Operator',
+              userId: data.operatorId || data.createdBy, // Backward compatibility
+              
+              // 🔥 FIXED: Status mapping - show ALL sessions including active ones
+              rawStatus: data.status || 'unknown', // Keep original TaskPage status
+              isActive: data.isActive !== false && data.status === 'in_progress', // Show in-progress sessions
+              
+              // 🔥 FIXED: Timestamps mapping
+              createdAt: data.createdAt?.toDate() || data.startTime?.toDate() || new Date(),
+              completedAt: data.status === 'completed' ? (data.completedAt?.toDate() || data.lastUpdated?.toDate()) : null,
+              startTime: data.startTime?.toDate(),
+              lastUpdated: data.lastUpdated?.toDate() || data.createdAt?.toDate() || new Date(),
+              
+              // Progress data - direct from TaskPage
+              currentStep: data.currentStep || 0,
+              stepStatuses: data.stepStatuses || [],
+              totalTime: data.totalTime || 0,
+              stepCompletionTimes: data.stepCompletionTimes || [],
+              stepTimes: data.stepTimes || [],
+              totalSteps: data.totalSteps || (data.stepStatuses?.length || 0),
+              
+              // 🔥 FIXED: Admin status handling (matching ProgressPage logic)
+              adminStatus: data.adminStatus || (
+                data.status === 'completed' ? 'pending' : 
+                data.status === 'in_progress' ? 'in_progress' :  // Keep in_progress
+                data.isActive ? 'active' :
+                'unknown'
+              ),
+              adminComment: data.adminComment || '',
+              adminId: data.adminId || null,
+              adminName: data.adminName || null,
+              reviewedAt: data.reviewedAt?.toDate() || data.statusUpdatedAt?.toDate() || null,
+              statusUpdatedBy: data.statusUpdatedBy || null,
+              
+              // 🔥 ADDED: Additional TaskPage fields
+              participants: data.participants || [],
+              stepOperators: data.stepOperators || {},
+              troubleshootHistory: data.troubleshootHistory || [],
+              
+              // Efficiency calculation data
+              stepTargetTimes: data.stepTargetTimes || [],
+              totalTargetTime: data.totalTargetTime || data.targetTime || 0,
+              finalEfficiency: data.finalEfficiency || 0,
+              
+              // Meta data
+              type: data.type || 'work_session'
+            };
+
+            sessions.push(mappedSession);
+
+            // Enhanced logging for debugging
+            console.log(`📋 [HomePage] Session ${doc.id}:`, {
+              taskName: mappedSession.workInstructionTitle,
+              moNumber: mappedSession.moNumber,
+              rawStatus: mappedSession.rawStatus,
+              adminStatus: mappedSession.adminStatus,
+              isActive: mappedSession.isActive,
+              currentStep: mappedSession.currentStep,
+              totalSteps: mappedSession.totalSteps,
+              operatorId: mappedSession.operatorId,
+              lastUpdated: mappedSession.lastUpdated
+            });
+          });
+
+          // 🔥 FIXED: Sort by lastUpdated (most recent first) - matching ProgressPage
+          sessions.sort((a, b) => {
+            const dateA = a.lastUpdated || a.createdAt || new Date(0);
+            const dateB = b.lastUpdated || b.createdAt || new Date(0);
+            return dateB - dateA;
+          });
+
+          console.log(`✅ [HomePage] REAL-TIME: ${sessions.length} sessions loaded and sorted`);
+          console.log('📊 [HomePage] Session breakdown:', {
+            total: sessions.length,
+            active: sessions.filter(s => s.isActive).length,
+            completed: sessions.filter(s => s.rawStatus === 'completed').length,
+            in_progress: sessions.filter(s => s.rawStatus === 'in_progress').length
+          });
+
+          setWorkSessions(sessions);
+          setError(null); // Clear any previous errors
+        },
+        (error) => {
+          console.error('❌ [HomePage] Real-time listener error:', error);
+          
+          let errorMessage = 'Gagal memuat work sessions secara real-time';
+          
+          if (error.code === 'failed-precondition') {
+            errorMessage = 'Database index diperlukan. Mencoba query alternatif...';
+            console.error('❌ [HomePage] Required Firestore indexes:', {
+              collection: 'workSessions',
+              indexes: [
+                'operatorId ASC, type ASC',
+                'createdBy ASC, type ASC',
+                'operatorId ASC, type ASC, lastUpdated DESC'
+              ]
+            });
+            
+            // 🔥 FALLBACK: Try simpler query without compound index
+            setTimeout(() => {
+              console.log('🔄 [HomePage] Attempting fallback query...');
+              setupFallbackWorkSessionsQuery(userId);
+            }, 1000);
+            
+          } else if (error.code === 'permission-denied') {
+            errorMessage = 'Tidak memiliki izin untuk mengakses work sessions.';
+          } else if (error.code === 'unavailable') {
+            errorMessage = 'Layanan database tidak tersedia. Mencoba koneksi ulang...';
+            
+            // 🔥 RETRY: Attempt reconnection
+            setTimeout(() => {
+              console.log('🔄 [HomePage] Retrying work sessions connection...');
+              loadWorkSessions(userId);
+            }, 5000);
+            
+          } else {
+            errorMessage = `${errorMessage}: ${error.message}`;
+          }
+          
+          console.warn('⚠️ [HomePage] Work sessions error:', errorMessage);
+          // Don't set error state for work sessions, just log it
+          setWorkSessions([]);
+        }
       );
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const sessionsData = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          sessionsData.push({
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate(),
-            completedAt: data.completedAt?.toDate(),
-            startTime: data.startTime?.toDate(),
-            lastUpdated: data.lastUpdated?.toDate(),
-            // FIXED: Use the same admin status fields as ProgressPage
-            adminStatus: data.status || data.adminStatus || (data.completedAt ? 'pending' : 'active'),
-            adminComment: data.adminComment || '',
-            adminId: data.adminId || null,
-            adminName: data.adminName || null,
-            reviewedAt: data.reviewedAt?.toDate() || data.statusUpdatedAt?.toDate() || null,
-            statusUpdatedBy: data.statusUpdatedBy || null
-          });
-        });
-
-        // Sort by creation date
-        sessionsData.sort((a, b) => {
-          const dateA = a.createdAt || new Date(0);
-          const dateB = b.createdAt || new Date(0);
-          return dateB - dateA; // Descending order
-        });
-
-        // Limit to 10 for homepage
-        const limitedSessions = sessionsData.slice(0, 10);
-        
-        console.log(`✅ [HomePage] Work sessions loaded: ${limitedSessions.length} sessions`);
-        
-        // Log status information for debugging
-        limitedSessions.forEach(session => {
-          if (session.completedAt) {
-            console.log(`📋 [HomePage] Session ${session.id}: status="${session.adminStatus}", completedAt=${session.completedAt}`);
-          }
-        });
-
-        setWorkSessions(limitedSessions);
-      }, (error) => {
-        console.error('❌ [HomePage] Error in work sessions listener:', error);
-        setWorkSessions([]);
-      });
-
+      setRealtimeUnsubscribe(() => unsubscribe);
       return unsubscribe;
 
     } catch (error) {
-      console.error('❌ [HomePage] Error loading work sessions:', error);
+      console.error('❌ [HomePage] Error setting up work sessions listener:', error);
+      setWorkSessions([]);
+    }
+  };
+
+  // 🔥 ADDED: Fallback query for work sessions when compound indexes aren't available
+  const setupFallbackWorkSessionsQuery = async (userId) => {
+    try {
+      console.log('🔄 [HomePage] Setting up fallback work sessions query...');
+
+      const sessionsRef = collection(db, 'workSessions');
+      
+      // Simple query without compound index
+      const q = query(
+        sessionsRef,
+        where('operatorId', '==', userId)
+      );
+
+      const unsubscribe = onSnapshot(q, 
+        (snapshot) => {
+          console.log('📡 [HomePage] FALLBACK: Work sessions update received:', snapshot.size);
+          
+          const sessions = [];
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // Only include work_session type
+            if (data.type === 'work_session') {
+              // Use same mapping logic as main listener
+              sessions.push({
+                id: doc.id,
+                workInstructionTitle: data.taskName || data.workInstructionTitle || 'Unknown Task',
+                workInstructionId: data.taskId || data.workInstructionId || 'unknown',
+                moNumber: data.moNumber || data.moDisplay || 'No MO',
+                operatorId: data.operatorId || data.createdBy,
+                operatorName: data.operatorName || 'Unknown Operator',
+                userId: data.operatorId || data.createdBy,
+                rawStatus: data.status || 'unknown',
+                isActive: data.isActive !== false && data.status === 'in_progress',
+                createdAt: data.createdAt?.toDate() || data.startTime?.toDate() || new Date(),
+                completedAt: data.status === 'completed' ? (data.completedAt?.toDate() || data.lastUpdated?.toDate()) : null,
+                lastUpdated: data.lastUpdated?.toDate() || data.createdAt?.toDate() || new Date(),
+                currentStep: data.currentStep || 0,
+                stepStatuses: data.stepStatuses || [],
+                totalTime: data.totalTime || 0,
+                stepCompletionTimes: data.stepCompletionTimes || [],
+                totalSteps: data.totalSteps || (data.stepStatuses?.length || 0),
+                adminStatus: data.adminStatus || (
+                  data.status === 'completed' ? 'pending' : 
+                  data.status === 'in_progress' ? 'in_progress' : 
+                  'unknown'
+                ),
+                type: data.type
+              });
+            }
+          });
+
+          sessions.sort((a, b) => (b.lastUpdated || b.createdAt) - (a.lastUpdated || a.createdAt));
+          
+          console.log(`✅ [HomePage] FALLBACK: ${sessions.length} work sessions loaded`);
+          setWorkSessions(sessions);
+        },
+        (error) => {
+          console.error('❌ [HomePage] Fallback work sessions query also failed:', error);
+          setWorkSessions([]);
+        }
+      );
+
+      setRealtimeUnsubscribe(() => unsubscribe);
+      
+    } catch (error) {
+      console.error('❌ [HomePage] Fallback work sessions setup failed:', error);
       setWorkSessions([]);
     }
   };
@@ -246,6 +455,12 @@ const HomePage = () => {
   const handleLogout = async () => {
     if (window.confirm('Apakah Anda yakin ingin logout?')) {
       try {
+        // Clean up real-time listener before logout
+        if (realtimeUnsubscribe) {
+          realtimeUnsubscribe();
+          setRealtimeUnsubscribe(null);
+        }
+
         await signOut(auth);
         
         // Clear localStorage data
@@ -316,47 +531,82 @@ const HomePage = () => {
     }
   };
 
-  // FIXED: Get approval status color and text - Updated to match ProgressPage
-  const getApprovalStatus = (adminStatus) => {
-    switch (adminStatus?.toLowerCase()) {
-      case 'approved':
-        return { text: 'Disetujui', class: 'status-approved' };
-      case 'rejected':
-        return { text: 'Ditolak', class: 'status-rejected' };
-      case 'pending':
+  // 🔥 FIXED: Get approval status function updated for TaskPage status values (matching ProgressPage)
+  const getApprovalStatus = (status, adminStatus) => {
+    // Prioritize adminStatus if available
+    if (adminStatus) {
+      switch (adminStatus.toLowerCase()) {
+        case 'approved':
+          return { text: 'Disetujui', class: 'status-approved' };
+        case 'rejected':
+          return { text: 'Ditolak', class: 'status-rejected' };
+        case 'pending':
+          return { text: 'Menunggu Review', class: 'status-pending' };
+        case 'in_progress':
+          return { text: 'Sedang Dikerjakan', class: 'status-active' };
+        default:
+          return { text: 'Belum Direview', class: 'status-pending' };
+      }
+    }
+    
+    // Fallback to TaskPage status
+    switch (status) {
+      case 'completed':
         return { text: 'Menunggu Review', class: 'status-pending' };
-      case 'submitted':
-        return { text: 'Terkirim', class: 'status-submitted' };
+      case 'in_progress':
+        return { text: 'Sedang Dikerjakan', class: 'status-active' };
       default:
-        return { text: 'Belum Direview', class: 'status-pending' };
+        return { text: 'Status Tidak Dikenal', class: 'status-unknown' };
     }
   };
 
-  // Calculate work sessions statistics matching ProgressPage logic
+  // 🔥 FIXED: Calculate work sessions statistics matching ProgressPage logic
   const getWorkSessionsStats = () => {
-    const activeCount = workSessions.filter(session => session.isActive).length;
-    const completedCount = workSessions.filter(session => session.completedAt).length;
-    const pausedCount = workSessions.filter(session => !session.isActive && !session.completedAt).length;
+    console.log('📊 [HomePage] Calculating stats for', workSessions.length, 'sessions');
     
-    return {
+    const activeCount = workSessions.filter(session => {
+      const isActive = session.isActive === true || session.rawStatus === 'in_progress';
+      return isActive;
+    }).length;
+    
+    const completedCount = workSessions.filter(session => {
+      const isCompleted = session.rawStatus === 'completed' || session.completedAt != null;
+      return isCompleted;
+    }).length;
+    
+    const pausedCount = workSessions.filter(session => {
+      const isPaused = !session.isActive && session.rawStatus !== 'completed' && !session.completedAt;
+      return isPaused;
+    }).length;
+
+    const stats = {
       total: workSessions.length,
       completed: completedCount,
       active: activeCount,
       paused: pausedCount
     };
+
+    console.log('📊 [HomePage] Stats calculated:', stats);
+    return stats;
   };
 
-  // FIXED: Get recent work sessions for summary - Updated to use adminStatus
+  // 🔥 FIXED: Get recent work sessions for summary - Updated to use adminStatus (matching ProgressPage)
   const getRecentWorkSessions = () => {
+    console.log('📋 [HomePage] Getting recent work sessions from', workSessions.length, 'total sessions');
+    
     return workSessions
-      .slice(0, 5) // Show more sessions since we removed reports
+      .slice(0, 5)
       .map(session => {
-        // Calculate session status
-        let status = 'Terhenti';
-        if (session.isActive) {
-          status = 'Aktif';
-        } else if (session.completedAt) {
-          status = 'Selesai';
+        // Map TaskPage status to display status (matching ProgressPage logic)
+        let displayStatus = 'Tidak Dikenal';
+        if (session.rawStatus === 'in_progress') {
+          displayStatus = 'Sedang Dikerjakan';
+        } else if (session.rawStatus === 'completed') {
+          displayStatus = 'Selesai';
+        } else if (session.isActive) {
+          displayStatus = 'Aktif';
+        } else {
+          displayStatus = 'Terhenti';
         }
 
         // Calculate completion rate
@@ -365,22 +615,34 @@ const HomePage = () => {
         const completedSteps = stepStatuses.filter(s => s === 'completed').length;
         const completionRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
-        // FIXED: Get approval status using adminStatus field
-        const approvalStatus = getApprovalStatus(session.adminStatus);
+        // 🔥 FIXED: Get approval status using adminStatus field (matching ProgressPage)
+        const approvalStatus = getApprovalStatus(session.rawStatus, session.adminStatus);
 
-        return {
+        const result = {
           id: session.id,
           title: session.workInstructionTitle || 'Untitled Task',
-          status: status,
+          status: displayStatus,
           date: session.createdAt,
           completionRate: completionRate,
           totalTime: session.totalTime || 0,
           approvalStatus: approvalStatus,
-          // Add admin info for debugging
+          // Enhanced debugging info
+          rawStatus: session.rawStatus,
           adminStatus: session.adminStatus,
-          adminComment: session.adminComment,
-          adminName: session.adminName
+          moNumber: session.moNumber,
+          operatorId: session.operatorId
         };
+
+        console.log(`📋 [HomePage] Recent session ${session.id}:`, {
+          title: result.title,
+          displayStatus: result.status,
+          approvalStatus: result.approvalStatus.text,
+          completionRate: result.completionRate,
+          rawStatus: result.rawStatus,
+          adminStatus: result.adminStatus
+        });
+
+        return result;
       });
   };
 
@@ -400,12 +662,23 @@ const HomePage = () => {
     return parts.join(' ') || '0 detik';
   };
 
+  // 🔥 ADDED: Cleanup effect for real-time listener
+  useEffect(() => {
+    return () => {
+      if (realtimeUnsubscribe) {
+        console.log('🧹 [HomePage] Component unmount: cleaning up real-time listener');
+        realtimeUnsubscribe();
+      }
+    };
+  }, [realtimeUnsubscribe]);
+
   if (loading) {
     return (
       <div className="modern-loading-container">
         <div className="modern-loading-content">
           <div className="modern-loading-spinner"></div>
           <p className="modern-loading-text">Memuat dashboard...</p>
+          <p className="modern-loading-subtitle">🔄 Menghubungkan real-time data...</p>
         </div>
       </div>
     );
@@ -428,6 +701,9 @@ const HomePage = () => {
 
   const workSessionsStats = getWorkSessionsStats();
   const recentWorkSessions = getRecentWorkSessions();
+
+  console.log('🎨 [HomePage] Rendering with stats:', workSessionsStats);
+  console.log('🎨 [HomePage] Rendering with recent sessions:', recentWorkSessions.length);
 
   return (
     <div className="modern-home-container">
@@ -481,7 +757,7 @@ const HomePage = () => {
                 
                 <button className="modern-dropdown-item" onClick={handleProfileClick}>
                   <User size={18} />
-                  <span>Profile Settings</span>
+                  <span>Profile</span>
                 </button>
                 
                 <button className="modern-dropdown-item logout" onClick={handleLogout}>
@@ -513,6 +789,20 @@ const HomePage = () => {
               day: 'numeric' 
             })}</span>
           </div>
+          {/* 🔥 ADDED: Real-time status indicator */}
+          {workSessions.length > 0 && (
+            <div className="modern-realtime-status">
+              {realtimeUnsubscribe ? (
+                <span className="modern-realtime-active">
+                  🟢 Real-time aktif • Data terupdate otomatis
+                </span>
+              ) : (
+                <span className="modern-realtime-inactive">
+                  🟡 Mode statis • Refresh manual
+                </span>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Tasks Section - Moved here, right after welcome section */}
@@ -630,13 +920,19 @@ const HomePage = () => {
             </button>
           </section>
 
-          {/* Stats Overview */}
+          {/* 🔥 FIXED: Stats Overview with proper data display */}
           <section className="modern-stats-overview">
             <h2 className="modern-section-title">
               <div className="modern-section-icon">
                 <BarChart3 size={20} />
               </div>
               Overview
+              {/* 🔥 ADDED: Loading indicator for work sessions */}
+              {workSessions.length === 0 && !error && (
+                <small style={{ color: '#666', fontWeight: 'normal' }}>
+                  🔄 Memuat...
+                </small>
+              )}
             </h2>
             
             <div className="modern-stats-grid">
@@ -668,21 +964,33 @@ const HomePage = () => {
                 margin: 0
               }}>
                 {workSessions.length > 0 
-                  ? `Terakhir diperbarui: ${formatDate(workSessions[0]?.createdAt)}`
-                  : 'Belum ada aktivitas'
+                  ? `Terakhir diperbarui: ${formatDate(workSessions[0]?.lastUpdated || workSessions[0]?.createdAt)}`
+                  : 'Belum ada aktivitas work session'
                 }
               </p>
+              {/* 🔥 ADDED: Real-time status in overview */}
+              {realtimeUnsubscribe && (
+                <small style={{ color: '#28a745', display: 'block', marginTop: '0.5rem' }}>
+                  🟢 Data real-time aktif
+                </small>
+              )}
             </div>
           </section>
         </div>
 
-        {/* Recent Activity */}
+        {/* 🔥 FIXED: Recent Activity with proper data handling */}
         <section className="modern-recent-activity">
           <h2 className="modern-section-title">
             <div className="modern-section-icon">
               <Award size={20} />
             </div>
             Recent Work Sessions
+            {/* 🔥 ADDED: Session count indicator */}
+            {recentWorkSessions.length > 0 && (
+              <span className="modern-section-count">
+                ({recentWorkSessions.length})
+              </span>
+            )}
           </h2>
           
           {recentWorkSessions.length > 0 ? (
@@ -691,22 +999,34 @@ const HomePage = () => {
                 <div key={session.id} className="modern-activity-item">
                   <div className="modern-activity-content">
                     <div className="modern-activity-icon">
-                      <Briefcase size={20} />
+                      {/* 🔥 ADDED: Active session indicator */}
+                      {session.rawStatus === 'in_progress' && (
+                        <div className="modern-activity-pulse">🔴</div>
+                      )}
                     </div>
                     <div className="modern-activity-text">
                       <div className="modern-activity-title">{session.title}</div>
                       <div className="modern-activity-subtitle">
                         Progress: {session.completionRate}% • Duration: {formatTime(session.totalTime)}
+                        {/* 🔥 ADDED: MO number display */}
+                        {session.moNumber && (
+                          <> • MO: {session.moNumber}</>
+                        )}
                       </div>
                       <div className="modern-activity-approval">
                         Status Approval: <span className={`modern-approval-badge ${session.approvalStatus.class}`}>
                           {session.approvalStatus.text}
                         </span>
-                        {/* Debug info - can be removed in production */}
+                        {/* 🔥 ENHANCED: Debug info with better formatting */}
                         {process.env.NODE_ENV === 'development' && (
-                          <span style={{ fontSize: '0.8rem', color: '#999', marginLeft: '10px' }}>
-                            (adminStatus: {session.adminStatus || 'none'})
-                          </span>
+                          <details style={{ fontSize: '0.75rem', color: '#999', marginTop: '4px' }}>
+                            <summary>Informasi</summary>
+                            <div>
+                              Raw Status: {session.rawStatus || 'none'}<br/>
+                              Admin Status: {session.adminStatus || 'none'}<br/>
+                              Operator: {session.operatorId?.substring(0, 8) || 'unknown'}
+                            </div>
+                          </details>
                         )}
                       </div>
                     </div>
@@ -717,6 +1037,10 @@ const HomePage = () => {
                     </div>
                     <span className={`modern-activity-status status-${session.status.toLowerCase().replace(' ', '-')}`}>
                       {session.status}
+                      {/* 🔥 ADDED: Live indicator for active sessions */}
+                      {session.rawStatus === 'in_progress' && (
+                        <small className="modern-live-indicator"> LIVE</small>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -725,8 +1049,49 @@ const HomePage = () => {
           ) : (
             <div className="modern-no-data">
               <div className="modern-no-data-icon">📊</div>
-              <h3>Belum ada work sessions</h3>
-              <p>Mulai bekerja pada tugas untuk melihat aktivitas di sini.</p>
+              <h3>
+                {workSessions.length === 0 && !error 
+                  ? 'Memuat work sessions...' 
+                  : 'Belum ada work sessions'}
+              </h3>
+              <p>
+                {workSessions.length === 0 && !error
+                  ? '🔄 Menghubungkan ke database real-time...'
+                  : 'Mulai bekerja pada tugas untuk melihat aktivitas di sini.'}
+              </p>
+              {workSessions.length === 0 && !loading && (
+                <div className="modern-no-data-actions">
+                  <button 
+                    onClick={() => {
+                      console.log('🔄 Manual refresh work sessions');
+                      if (userData.uid) {
+                        loadWorkSessions(userData.uid);
+                      }
+                    }}
+                    className="modern-refresh-btn"
+                  >
+                    🔄 Refresh Work Sessions
+                  </button>
+                  <button 
+                    onClick={() => navigate('/task')}
+                    className="modern-start-btn"
+                  >
+                    🚀 Mulai Task Baru
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* 🔥 ADDED: View all sessions link */}
+          {recentWorkSessions.length > 0 && (
+            <div className="modern-section-footer">
+              <button 
+                onClick={handleNavigateToProgress}
+                className="modern-view-all-btn"
+              >
+                Lihat Semua Sessions ({workSessions.length}) →
+              </button>
             </div>
           )}
         </section>

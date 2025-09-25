@@ -114,22 +114,38 @@
   gap: 20px;
 }
 
-.back-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  padding: 8px;
-  border-radius: var(--border-radius-sm);
-  transition: var(--transition-fast);
+.register-back-button {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #64748b;
+  position: relative;
+  overflow: hidden;
+  margin-left: 1rem;
 }
-
-.back-button:hover {
-  color: var(--primary-blue);
-  background: rgba(103, 126, 234, 0.1);
+.register-back-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.register-back-button:hover {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  color: #334155;
+  transform: translateX(-3px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.register-back-button:hover::before {
+  opacity: 1;
 }
 
 .logo-section {
@@ -144,33 +160,18 @@
   transform: translateY(-1px);
 }
 
-.company-logo {
-  width: 50px;
+.company-logo{
   height: 50px;
-  border-radius: var(--border-radius-sm);
-  object-fit: contain;
-  box-shadow: var(--shadow-sm);
-  flex-shrink: 0;
+  width: auto;
+  cursor: pointer;
+  transition: transform 0.3s ease, filter 0.3s ease;
 }
 
-.company-info {
-  flex-shrink: 0;
+.company-logo:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
 }
 
-.company-info h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-shadow: none;
-}
-
-.company-info p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-  font-weight: 400;
-}
 
 /* Main Card */
 .register-card {

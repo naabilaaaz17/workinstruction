@@ -32,7 +32,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1400px;
+  padding-left: 8rem;
+  padding-right: 8rem;
   margin: 0 auto;
 }
 

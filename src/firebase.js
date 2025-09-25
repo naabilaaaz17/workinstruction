@@ -1,9 +1,22 @@
-// src/firebase.js - Versi yang diperbaiki untuk mengatasi IndexedDB error
+// src/firebase.js - Versi lengkap dengan error handling dan optimasi
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, initializeFirestore } from "firebase/firestore";
-import { getStorage, connectStorageEmulator } from "firebase/storage"; // ← Tambahkan import storage
+import { 
+  getAuth, 
+  connectAuthEmulator,
+  setPersistence,
+  browserSessionPersistence,
+  inMemoryPersistence
+} from "firebase/auth";
+import { 
+  getFirestore, 
+  connectFirestoreEmulator, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from "firebase/firestore";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3zcD5eay3FbT1yqrNs7TnFUIKKm_0I0U",
@@ -12,110 +25,165 @@ const firebaseConfig = {
   storageBucket: "work-instruction-8ace7.appspot.com",
   messagingSenderId: "163344858359",
   appId: "1:163344858359:web:184edf7dde09d91fb467f2",
-  measurementId: "G-RRHHEX4XSC",
+  measurementId: "G-RRHHEX4XSC"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth
+// Initialize Auth dengan persistence yang lebih baik
 export const auth = getAuth(app);
 
-// Initialize Firestore dengan konfigurasi yang lebih stabil
-let db;
+// Konfigurasi persistence auth
+export const configureAuthPersistence = async (persistenceType = 'session') => {
+  try {
+    await setPersistence(auth, 
+      persistenceType === 'session' ? 
+        browserSessionPersistence : 
+        inMemoryPersistence
+    );
+  } catch (error) {
+    console.error('Error setting auth persistence:', error);
+  }
+};
+
+// Initialize Firestore dengan konfigurasi optimal
+export let db;
+export const initializeFirestoreDB = async () => {
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+        // Fallback ke memory cache jika IndexedDB error
+        fallbackToMemory: true
+      }),
+      ignoreUndefinedProperties: true
+    });
+  } catch (error) {
+    console.warn('Firestore initialization error, falling back to default:', error);
+    db = getFirestore(app);
+  }
+  return db;
+};
+
+// Panggil inisialisasi
+initializeFirestoreDB();
+
+// Initialize Storage dengan error handling
+export let storage;
 try {
-  // Coba inisialisasi Firestore dengan pengaturan cache yang lebih baik
-  db = initializeFirestore(app, {
-    cache: {
-      // Gunakan memory cache untuk menghindari masalah IndexedDB
-      kind: 'memory'
-    },
-    // Tambahkan settings untuk stabilitas
-    ignoreUndefinedProperties: true,
-    // Disable offline persistence untuk sementara
-    localCache: {
-      kind: 'memory'
-    }
-  });
+  storage = getStorage(app);
 } catch (error) {
-  console.warn('Failed to initialize Firestore with custom settings, falling back to default:', error);
-  // Fallback ke inisialisasi default
-  db = getFirestore(app);
+  console.error('Storage initialization failed:', error);
+  storage = null;
 }
 
-export { db };
+// Initialize Functions
+export const functions = getFunctions(app);
 
-// Initialize Storage - TAMBAHAN BARU
-export const storage = getStorage(app);
-
-// Initialize Analytics dengan error handling yang lebih baik
-let analytics = null;
+// Initialize Analytics dengan cek environment
+export let analytics;
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
   try {
     analytics = getAnalytics(app);
   } catch (error) {
-    console.warn('Analytics not available:', error);
+    console.warn('Analytics initialization failed:', error);
   }
 }
 
-// Development mode: Connect to emulators dengan error handling
-if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_EMULATOR === 'true') {
-  try {
-    // Pastikan emulator belum terhubung sebelumnya
-    if (!auth.config.emulator) {
-      connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
-    }
-    
-    if (!db._delegate._databaseId.projectId.includes('demo-')) {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-    }
+// Emulator connection handler
+const connectEmulators = () => {
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      // Auth Emulator
+      if (!auth._emulatorConfig) {
+        connectAuthEmulator(auth, "http://localhost:9099", {
+          disableWarnings: true
+        });
+      }
 
-    // Connect Storage Emulator jika diperlukan
-    if (process.env.REACT_APP_USE_STORAGE_EMULATOR === 'true') {
-      connectStorageEmulator(storage, 'localhost', 9199);
+      // Firestore Emulator
+      if (!db._settings?.host) {
+        connectFirestoreEmulator(db, 'localhost', 8080);
+      }
+
+      // Storage Emulator
+      if (storage && !storage._app._getService('storage')._host.includes('localhost')) {
+        connectStorageEmulator(storage, 'localhost', 9199);
+      }
+
+      // Functions Emulator
+      if (!functions._regionOrCustomDomain) {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
+    } catch (error) {
+      console.warn('Emulator connection error:', error);
     }
-  } catch (error) {
-    console.warn('Emulator connection failed:', error);
   }
-}
-
-export { analytics };
-export default app;
-
-// Utility function untuk handle Firebase operations dengan error handling
-export const handleFirebaseError = (error) => {
-  console.error('Firebase error:', error);
-  
-  // Jika error terkait IndexedDB, coba fallback
-  if (error.code === 'app/idb-set' || error.message.includes('IndexedDB')) {
-    console.warn('IndexedDB error detected, using fallback method');
-    return true; // Indicate fallback should be used
-  }
-  
-  return false;
 };
 
-// Wrapper function untuk Firestore operations
-export const safeFirestoreOperation = async (operation) => {
+// Aktifkan emulator jika diperlukan
+if (process.env.REACT_APP_USE_EMULATOR === 'true') {
+  connectEmulators();
+}
+
+// Enhanced error handling utilities
+export class FirebaseErrorHandler {
+  static isIndexedDBError(error) {
+    return error.code === 'app/idb-set' || 
+           error.message.includes('IndexedDB') ||
+           error.name === 'FirebaseError';
+  }
+
+  static handle(error, context = '') {
+    console.error(`Firebase Error [${context}]:`, error);
+    
+    if (this.isIndexedDBError(error)) {
+      console.warn('IndexedDB issue detected, applying fallbacks');
+      return {
+        shouldFallback: true,
+        message: 'Storage unavailable, using fallback methods'
+      };
+    }
+
+    return {
+      shouldFallback: false,
+      message: error.message
+    };
+  }
+}
+
+// Safe operation wrappers
+export const safeOperation = async (operation, context = '') => {
   try {
     return await operation();
   } catch (error) {
-    const shouldFallback = handleFirebaseError(error);
+    const { shouldFallback } = FirebaseErrorHandler.handle(error, context);
+    
     if (shouldFallback) {
-      // Implementasi fallback, misalnya menggunakan localStorage
-      console.warn('Using localStorage fallback due to Firestore error');
+      // Implement fallback strategy here
       throw new Error('FALLBACK_REQUIRED');
     }
+    
     throw error;
   }
 };
 
-// Utility function untuk Storage operations dengan error handling
-export const safeStorageOperation = async (operation) => {
-  try {
-    return await operation();
-  } catch (error) {
-    console.error('Storage operation error:', error);
-    throw error;
-  }
+// Auth state wrapper dengan error handling
+export const getAuthState = () => {
+  return new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(
+      user => {
+        unsubscribe();
+        resolve(user);
+      },
+      error => {
+        unsubscribe();
+        FirebaseErrorHandler.handle(error, 'auth-state');
+        reject(error);
+      }
+    );
+  });
 };
+
+export default app;

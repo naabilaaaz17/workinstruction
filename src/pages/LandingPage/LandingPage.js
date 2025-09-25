@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 // Import images
 import LogoLen from '../assets/images/logo-defend-len.png';
+import logoLRS from '../assets/images/logoLRS.png';
 import Product1 from '../assets/images/product1.jpg';
 import Product2 from '../assets/images/product2.png';
 import Product3 from '../assets/images/product3.png';
@@ -135,8 +136,19 @@ const LandingPage = () => {
       {/* Navbar */}
       <nav className={`landing-navbar ${scrolled ? 'landing-navbar-scrolled' : ''}`}>
         <div className="landing-navbar-inner">
-          <div className="landing-nav-title">
-            <span className="landing-text-blue-600">Len</span> Railway Systems
+          <div className="landing-nav-logo">
+            <img 
+              src={logoLRS} 
+              alt="Logo LRS" 
+              className="landing-nav-logo-img"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'inline-block';
+              }}
+            />
+            <span className="landing-nav-logo-fallback" style={{ display: 'none' }}>
+              LRS
+            </span>
           </div>
           
           <div className="landing-nav-links">
@@ -484,23 +496,6 @@ const LandingPage = () => {
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* Contact Support */}
-          <div className="landing-support-contact">
-            <div className="landing-support-card">
-              <MessageSquare size={32} />
-              <h3>Butuh Bantuan Lebih Lanjut?</h3>
-              <p>Tim support kami siap membantu Anda 24/7</p>
-              <div className="landing-support-buttons">
-                <button className="landing-support-btn landing-primary">
-                  Chat dengan Support
-                </button>
-                <button className="landing-support-btn landing-secondary">
-                  Email Support
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </section>

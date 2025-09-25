@@ -2,6 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './RegisterPage.css';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { 
+  collection, 
+  serverTimestamp, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  setDoc, 
+  getDoc,
+  updateDoc 
+} from 'firebase/firestore';
+import { db } from '../../firebase';
 import app from '../../firebase';
 import logoLRS from '../assets/images/logoLRS.png';
 
@@ -51,8 +63,8 @@ const CheckIcon = () => (
 
 const ArrowLeftIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <line x1="19" y1="12" x2="5" y2="12"/>
-    <polyline points="12,19 5,12 12,5"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
+    <polyline points="12,5 5,12 12,19"/>
   </svg>
 );
 
@@ -70,11 +82,14 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitDisabled, setSubmitDisabled] = useState(false); // Extra protection
   
   const navigate = useNavigate();
   const auth = getAuth(app);
+
+  // Admin email restriction
+  const ADMIN_EMAIL = 'admin@gmail.com';
 
   // Handle input changes dengan validation real-time
   const handleInputChange = (field, value) => {
@@ -83,8 +98,34 @@ export default function RegisterPage() {
       [field]: value
     }));
     
-    // Clear error saat user mulai mengetik
     if (error) setError('');
+  };
+
+  // Check if email already exists in database
+  const checkEmailExists = async (email) => {
+    try {
+      const usersRef = collection(db, 'users');
+      const emailQuery = query(usersRef, where('email', '==', email.toLowerCase().trim()));
+      const existingUsers = await getDocs(emailQuery);
+      return !existingUsers.empty;
+    } catch (err) {
+      console.error('Error checking email:', err);
+      // If we can't check, assume it doesn't exist to allow the process to continue
+      return false;
+    }
+  };
+
+  // Check if username already exists in database
+  const checkUsernameExists = async (username) => {
+    try {
+      const usersRef = collection(db, 'users');
+      const usernameQuery = query(usersRef, where('username', '==', username.toLowerCase().trim()));
+      const existingUsers = await getDocs(usernameQuery);
+      return !existingUsers.empty;
+    } catch (err) {
+      console.error('Error checking username:', err);
+      return false;
+    }
   };
 
   // Validate form sebelum submit
@@ -100,6 +141,12 @@ export default function RegisterPage() {
       setError('Format email tidak valid');
       return false;
     }
+
+    // Check if trying to register with admin email
+    if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      setError('Email ini tidak dapat digunakan untuk registrasi. Silakan gunakan email lain.');
+      return false;
+    }
     
     if (!username.trim()) {
       setError('Username harus diisi');
@@ -108,6 +155,12 @@ export default function RegisterPage() {
     
     if (username.length < 3) {
       setError('Username minimal 3 karakter');
+      return false;
+    }
+
+    // Prevent admin username
+    if (username.toLowerCase() === 'admin') {
+      setError('Username "admin" tidak dapat digunakan. Silakan pilih username lain.');
       return false;
     }
     
@@ -129,51 +182,95 @@ export default function RegisterPage() {
     return true;
   };
 
-  // Handle register dengan redirect ke login setelah sukses
+  // Enhanced register dengan comprehensive duplicate prevention
   const handleRegister = async (e) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isLoading || submitDisabled || isSuccess) return;
     
     if (!validateForm()) return;
     
     setIsLoading(true);
+    setSubmitDisabled(true); // Extra protection
     setError('');
-    setSuccessMessage('');
     
     try {
       const { email, username, password } = formData;
+      const cleanEmail = email.toLowerCase().trim();
+      const cleanUsername = username.trim();
       
-      // Create user dengan email & password
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // 1. Check if email already exists in Firestore
+      const emailExists = await checkEmailExists(cleanEmail);
+      if (emailExists) {
+        throw new Error('Email sudah terdaftar dalam sistem. Silakan gunakan email lain atau login.');
+      }
+
+      // 2. Check if username already exists
+      const usernameExists = await checkUsernameExists(cleanUsername);
+      if (usernameExists) {
+        throw new Error('Username sudah digunakan. Silakan pilih username lain.');
+      }
       
-      // Update profile dengan username
-      await updateProfile(userCredential.user, {
-        displayName: username
+      // 3. Create Firebase Auth account
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      const user = userCredential.user;
+      
+      // 4. Update profile with username
+      await updateProfile(user, {
+        displayName: cleanUsername
       });
+
+      // 5. Create user document using UID as document ID (prevents duplicates)
+      const userDocRef = doc(db, 'users', user.uid);
       
-      // Sign out user setelah berhasil register
+      // Double-check if document already exists
+      const existingDoc = await getDoc(userDocRef);
+      if (existingDoc.exists()) {
+        console.log('User document already exists, updating status...');
+        await updateDoc(userDocRef, {
+          username: cleanUsername,
+          displayName: cleanUsername,
+          status: 'pending',
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        // Create new document
+        await setDoc(userDocRef, {
+          uid: user.uid,
+          email: cleanEmail,
+          username: cleanUsername,
+          displayName: cleanUsername,
+          role: 'employee',
+          status: 'pending',
+          provider: 'email',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      // 6. Sign out user after registration (they need admin approval)
       await auth.signOut();
       
-      // Show success message
+      // 7. Show success message
       setIsSuccess(true);
-      setSuccessMessage('Akun berhasil dibuat! Silakan login untuk melanjutkan.');
-      
-      // Redirect ke halaman login setelah 3 detik
+
+      // 8. Redirect to login after 5 seconds
       setTimeout(() => {
         navigate('/login', { 
           state: { 
-            successMessage: 'Akun berhasil dibuat! Silakan login dengan akun baru Anda.',
-            registeredEmail: email
+            successMessage: 'Akun Anda sedang menunggu persetujuan admin. Anda akan menerima email ketika akun telah disetujui.',
+            registeredEmail: cleanEmail
           } 
         });
-      }, 3000);
+      }, 5000);
       
     } catch (err) {
       console.error('Registration error:', err);
       
-      // Handle specific Firebase errors
       switch (err.code) {
         case 'auth/email-already-in-use':
-          setError('Email sudah terdaftar. Silakan gunakan email lain atau login.');
+          setError('Email sudah terdaftar di sistem autentikasi. Silakan gunakan email lain atau login.');
           break;
         case 'auth/weak-password':
           setError('Password terlalu lemah. Gunakan minimal 6 karakter.');
@@ -184,13 +281,61 @@ export default function RegisterPage() {
         case 'auth/network-request-failed':
           setError('Koneksi internet bermasalah. Coba lagi.');
           break;
+        case 'auth/too-many-requests':
+          setError('Terlalu banyak percobaan. Silakan tunggu beberapa saat sebelum mencoba lagi.');
+          break;
         default:
-          setError('Terjadi kesalahan. Silakan coba lagi.');
+          setError(err.message || 'Terjadi kesalahan. Silakan coba lagi.');
       }
     } finally {
       setIsLoading(false);
+      // Re-enable submit after a short delay to prevent rapid clicking
+      setTimeout(() => {
+        setSubmitDisabled(false);
+      }, 2000);
     }
   };
+
+  // Komponen pesan sukses
+  const SuccessMessage = () => (
+    <div className="success-container">
+      <div className="success-animation">
+        <div className="success-icon">
+          <CheckIcon />
+        </div>
+      </div>
+      
+      <div className="success-content">
+        <h2>Pendaftaran Berhasil!</h2>
+        <p>Akun Anda sedang dalam proses persetujuan oleh admin. Anda akan menerima pemberitahuan via email setelah akun disetujui.</p>
+        
+        <div className="success-details">
+          <div className="detail-item">
+            <strong>Email:</strong> {formData.email}
+          </div>
+          <div className="detail-item">
+            <strong>Username:</strong> {formData.username}
+          </div>
+        </div>
+
+        <div className="redirect-info">
+          <div className="loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <p>Anda akan diarahkan ke halaman login...</p>
+        </div>
+
+        <button 
+          onClick={() => navigate('/login')}
+          className="goto-login-btn"
+        >
+          Ke Halaman Login
+        </button>
+      </div>
+    </div>
+  );
 
   // Handle navigation ke login
   const handleLoginRedirect = () => {
@@ -207,6 +352,8 @@ export default function RegisterPage() {
     navigate('/');
   };
 
+  const isFormDisabled = isLoading || submitDisabled || isSuccess;
+
   return (
     <div className="modern-register-container">
       {/* Background Pattern */}
@@ -221,8 +368,9 @@ export default function RegisterPage() {
         <div className="header-left">
           <button 
             onClick={handleCancel}
-            className="back-button"
+            className="register-back-button"
             aria-label="Kembali"
+            disabled={isFormDisabled}
           >
             <ArrowLeftIcon />
           </button>
@@ -245,10 +393,6 @@ export default function RegisterPage() {
               alt="Len Railway Systems" 
               className="company-logo" 
             />
-            <div className="company-info">
-              <h3>Len Railway Systems</h3>
-              <p>Digital Transformation</p>
-            </div>
           </div>
         </div>
       </div>
@@ -269,6 +413,7 @@ export default function RegisterPage() {
                   <label htmlFor="email">Email Address</label>
                   <div className="input-container">
                     <div className="input-icon">
+                      <EmailIcon />
                     </div>
                     <input
                       id="email"
@@ -277,7 +422,7 @@ export default function RegisterPage() {
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       placeholder="Masukkan email"
-                      disabled={isLoading}
+                      disabled={isFormDisabled}
                       required
                     />
                   </div>
@@ -287,6 +432,9 @@ export default function RegisterPage() {
                 <div className="form-group">
                   <label htmlFor="username">Username</label>
                   <div className="input-container">
+                    <div className="input-icon">
+                      <UserIcon />
+                    </div>
                     <input
                       id="username"
                       type="text"
@@ -294,8 +442,9 @@ export default function RegisterPage() {
                       value={formData.username}
                       onChange={(e) => handleInputChange('username', e.target.value)}
                       placeholder="Masukkan username"
-                      disabled={isLoading}
-                      required/>
+                      disabled={isFormDisabled}
+                      required
+                    />
                   </div>
                 </div>
 
@@ -303,6 +452,9 @@ export default function RegisterPage() {
                 <div className="form-group">
                   <label htmlFor="password">Password</label>
                   <div className="input-container">
+                    <div className="input-icon">
+                      <LockIcon />
+                    </div>
                     <input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -310,14 +462,14 @@ export default function RegisterPage() {
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
                       placeholder="Minimal 6 karakter"
-                      disabled={isLoading}
+                      disabled={isFormDisabled}
                       required
                     />
                     <button
                       type="button"
                       className="password-toggle-btn"
                       onClick={() => setShowPassword(!showPassword)}
-                      disabled={isLoading}
+                      disabled={isFormDisabled}
                       aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                     >
                       {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -329,6 +481,9 @@ export default function RegisterPage() {
                 <div className="form-group">
                   <label htmlFor="confirmPassword">Konfirmasi Password</label>
                   <div className="input-container">
+                    <div className="input-icon">
+                      <LockIcon />
+                    </div>
                     <input
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
@@ -336,14 +491,14 @@ export default function RegisterPage() {
                       value={formData.confirmPassword}
                       onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                       placeholder="Ulangi password"
-                      disabled={isLoading}
+                      disabled={isFormDisabled}
                       required
                     />
                     <button
                       type="button"
                       className="password-toggle-btn"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      disabled={isLoading}
+                      disabled={isFormDisabled}
                       aria-label={showConfirmPassword ? "Sembunyikan konfirmasi password" : "Tampilkan konfirmasi password"}
                     >
                       {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -362,8 +517,12 @@ export default function RegisterPage() {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className={`submit-button ${isLoading ? 'loading' : ''}`}
-                  disabled={isLoading}
+                  className={`submit-button ${isLoading ? 'loading' : ''} ${submitDisabled ? 'disabled' : ''}`}
+                  disabled={isFormDisabled}
+                  style={{ 
+                    pointerEvents: isFormDisabled ? 'none' : 'auto',
+                    opacity: isFormDisabled ? 0.7 : 1 
+                  }}
                 >
                   {isLoading ? (
                     <>
@@ -383,6 +542,7 @@ export default function RegisterPage() {
                       type="button"
                       onClick={handleLoginRedirect} 
                       className="link-button"
+                      disabled={isFormDisabled}
                     >
                       Masuk di sini
                     </button>
@@ -391,44 +551,7 @@ export default function RegisterPage() {
               </form>
             </>
           ) : (
-            /* Success State */
-            <div className="success-container">
-              <div className="success-animation">
-                <div className="success-icon">
-                  <CheckIcon />
-                </div>
-              </div>
-              
-              <div className="success-content">
-                <h2>Selamat! Akun Berhasil Dibuat</h2>
-                <p>Terima kasih telah bergabung dengan Len Railway Systems. Akun Anda telah berhasil dibuat dan siap digunakan.</p>
-                
-                <div className="success-details">
-                  <div className="detail-item">
-                    <strong>Email:</strong> {formData.email}
-                  </div>
-                  <div className="detail-item">
-                    <strong>Username:</strong> {formData.username}
-                  </div>
-                </div>
-
-                <div className="redirect-info">
-                  <div className="loading-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <p>Anda akan diarahkan ke halaman login dalam beberapa detik...</p>
-                </div>
-
-                <button 
-                  onClick={handleLoginRedirect}
-                  className="goto-login-btn"
-                >
-                  Masuk Sekarang
-                </button>
-              </div>
-            </div>
+            <SuccessMessage />
           )}
         </div>
       </div>
