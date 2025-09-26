@@ -16,7 +16,7 @@ import TaskWithoutMO from './pages/TaskPage/TaskWithoutMO';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/workinstruction">
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
