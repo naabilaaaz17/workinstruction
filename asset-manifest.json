@@ -1,0 +1,23 @@
+{
+  "files": {
+    "main.css": "/workinstruction/static/css/main.6e5ede77.css",
+    "main.js": "/workinstruction/static/js/main.3073c45e.js",
+    "static/js/453.c030b554.chunk.js": "/workinstruction/static/js/453.c030b554.chunk.js",
+    "static/media/product1.jpg": "/workinstruction/static/media/product1.99f7ec7d4375ba8a5909.jpg",
+    "static/media/work-illustration.mp4": "/workinstruction/static/media/work-illustration.efc9ae768173729db430.mp4",
+    "static/media/gardu.jpg": "/workinstruction/static/media/gardu.01146f2f3bff1da89c26.jpg",
+    "static/media/product2.png": "/workinstruction/static/media/product2.f1679a73e987a41ab867.png",
+    "static/media/product3.png": "/workinstruction/static/media/product3.f1679a73e987a41ab867.png",
+    "static/media/hero-background.jpg": "/workinstruction/static/media/hero-background.c3271cb0ce1d843f6d5b.jpg",
+    "static/media/logo-defend-len.png": "/workinstruction/static/media/logo-defend-len.1d81d3db89173c59cb97.png",
+    "static/media/logoLRS.png": "/workinstruction/static/media/logoLRS.2d66781d2f736a3ce88c.png",
+    "index.html": "/workinstruction/index.html",
+    "main.6e5ede77.css.map": "/workinstruction/static/css/main.6e5ede77.css.map",
+    "main.3073c45e.js.map": "/workinstruction/static/js/main.3073c45e.js.map",
+    "453.c030b554.chunk.js.map": "/workinstruction/static/js/453.c030b554.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.6e5ede77.css",
+    "static/js/main.3073c45e.js"
+  ]
+}
